@@ -2,7 +2,7 @@ from typing import List, Match
 import re
 import os
 
-from forge.sdk.memory.memstore_tools import add_ability_memory
+from forge.sdk.memory.memstore import ChromaMemStore
 
 from ...forge_log import ForgeLogger
 from ..registry import ability
@@ -102,79 +102,42 @@ async def list_files(agent, task_id: str, path: str) -> List[str]:
     ],
     output_type="None",
 )
-async def write_file(agent, task_id: str, file_name: str, data: bytes) -> str:
+async def write_file(agent, task_id: str, file_path: str, data: bytes) -> None:
     """
     Write data to a file
     """
-    # convert to string and clean up data
-    try:
-        if isinstance(data, bytes):
-            data = data.decode()
-        
-        data = data.replace('\\\\', '\\')
-        data = data.replace('\\n', '\n')
+    if isinstance(data, str):
+        data = data.encode()
 
-        # add to memory
-        add_ability_memory(
-            task_id,
-            data,
-            "write_file",
-            agent.memstore
-        )
-
-        # convert back to bytes
-        data = str.encode(data)
-
-        agent.workspace.write(task_id=task_id, path=file_name, data=data)
+    agent.workspace.write(task_id=task_id, path=file_path, data=data)
     
-        await agent.db.create_artifact(
-            task_id=task_id,
-            file_name=file_name.split("/")[-1],
-            relative_path=file_name,
-            agent_created=True,
-        )
+    await agent.db.create_artifact(
+        task_id=task_id,
+        file_name=file_path.split("/")[-1],
+        relative_path=file_path,
+        agent_created=True,
+    )
 
-        print(f"Writing data to {file_name} successful")
-    except Exception as err:
-        logger.error(f"write_file failed: {err}")
-        raise err
-    
-# @ability(
-#     name="read_file",
-#     description="Read data from a file",
-#     parameters=[
-#         {
-#             "name": "file_name",
-#             "description": "Name of the file",
-#             "type": "string",
-#             "required": True,
-#         },
-#     ],
-#     output_type="bytes",
-# )
-# async def read_file(agent, task_id: str, file_name: str) -> bytes:
-#     """
-#     Read data from a file
-#     """
-#     read_file = "No file found".encode()
+    add_memory(task_id, str(data), "write_file")
 
-#     try:
-#         read_file = agent.workspace.readlines(task_id=task_id, path=file_name)
-        
-#         # trim down file read to 255 characters
-#         file_str = ""
-#         for rfline in read_file[:255]:
-#             file_str += rfline.decode()
-
-#         add_ability_memory(task_id, file_str, "read_file")
-
-#         read_file = str.encode(file_str)
-#     except Exception as err:
-#         logger.error(f"read_file failed: {err}")
-#         raise err
-
-    
-#     return read_file
+@ability(
+    name="read_file",
+    description="Read data from a file",
+    parameters=[
+        {
+            "name": "file_path",
+            "description": "Path to the file including file name",
+            "type": "string",
+            "required": True,
+        },
+    ],
+    output_type="bytes",
+)
+async def read_file(agent, task_id: str, file_path: str) -> bytes:
+    """
+    Read data from a file
+    """
+    return agent.workspace.read(task_id=task_id, path=file_path)
 
 @ability(
     name="search_in_file",
@@ -195,11 +158,11 @@ async def write_file(agent, task_id: str, file_name: str, data: bytes) -> str:
     ],
     output_type="list"
 )
-async def search_in_file(agent, task_id: str, file_name: str, regex: str) -> List:
+async def search_file(agent, task_id: str, file_path: str, regex: str) -> List[Match]:
     """
     Search file using regex
     """
-    search_rgx = []
+    open_file = agent.workspace.read(task_id=task_id, path=file_path)
 
     try:
         open_file = agent.workspace.read(task_id=task_id, path=file_name)

@@ -20,10 +20,7 @@ from forge.sdk import (
     num_tokens_from_messages
 )
 
-from forge.sdk.memory.chroma_memstore import ChromaMemStore
-from forge.sdk.memory.weaviate_memstore import WeaviateMemstore
-
-from forge.sdk.ai_planning import AIPlanning
+from forge.sdk.memory.memstore import ChromaMemStore
 
 LOG = ForgeLogger(__name__)
 
@@ -207,7 +204,7 @@ class ForgeAgent(Agent):
         role: str, 
         content: str,
         is_function: bool = False,
-        function_name: str = None) -> None:
+        function_name: str = None):
         
         if is_function:
             chat_struct = {
@@ -466,36 +463,20 @@ class ForgeAgent(Agent):
                             ability["name"] != "None"):
                                 LOG.info(f"🔨 Running Ability {ability}")
 
-                                # Run the ability and get the output
-                                try:
-                                    if "args" in ability:
-                                        output = await self.abilities.run_ability(
-                                            task_id,
-                                            ability["name"],
-                                            **ability["args"]
-                                        )
-                                    else:
-                                        output = await self.abilities.run_ability(
-                                            task_id,
-                                            ability["name"]
-                                        )   
-                                except Exception as err:
-                                    LOG.error(f"Ability run failed: {err}")
-                                    output = None
-                                    await self.add_chat(
-                                        task_id=task_id,
-                                        role="system",
-                                        content=f"[{timestamp}] Ability {ability['name']} error: {err}"
-                                    )
-                                else:
-                                    # change None output to blank string
-                                    # change output to string if there is bytes output
-                                    if output == None:
-                                        output = ""
-                                    elif isinstance(output, bytes):
-                                        output = output.decode()
+            # Run the ability and get the output
+            if "args" in ability:
+                output = await self.abilities.run_ability(
+                    task_id,
+                    ability["name"],
+                    **ability["args"]
+                )
+            else:
+                output = await self.abilities.run_ability(
+                    task_id,
+                    ability["name"]
+                )
 
-                                    LOG.info(f"🔨 Ability Output\n{output}")
+            output = str(output) if output else "None"
 
                                     # add to converstion
                                     # add arguments to function content, if any
@@ -512,38 +493,16 @@ class ForgeAgent(Agent):
                                         function_name=ability["name"]
                                     )
 
-                                    step.status = "completed"
+            # Set the step output and is_last from AI
+            step.output = answer["thoughts"]["speak"]
+            step.is_last = answer["thoughts"]["last_step"]
 
-                                    if ability["name"] == "finish":
-                                        step.is_last = True
-                                        self.copy_to_temp(task_id)
-                            else:
-                                LOG.info("No ability name found")
-                                await self.add_chat(
-                                    task_id=task_id,
-                                    role="user",
-                                    content=f"[{timestamp}] You stated an ability without a name. Please include the name of the ability you want to use"
-                                )
-
-                        elif ability is not None and ability != "":
-                            LOG.info("No ability found")
-                            await self.add_chat(
-                                task_id=task_id,
-                                role="user",
-                                content=f"[{timestamp}] You didn't state a correct ability. You must use a real ability but if not using any set ability to None or a blank string."
-                            ) 
-                    
-            except json.JSONDecodeError as e:
-                # Handle JSON decoding errors
-                # notice when AI does this once it starts doing it repeatingly
-                LOG.error(f"agent.py - JSON error, ignoring response: {e}")
-                LOG.error(f"🤖 {chat_response['choices'][0]['message']['content']}")
-
-                LOG.info("Clearning chat and resending instructions due to JSON error")
-                await self.clear_chat(task_id, True)
-            except Exception as e:
-                # Handle other exceptions
-                LOG.error(f"execute_step error: {e}")
+        except json.JSONDecodeError as e:
+            # Handle JSON decoding errors
+            LOG.error(f"JSON error when decoding: {e}")
+        except Exception as e:
+            # Handle other exceptions
+            LOG.error(f"Unable to generate chat response: {e}")
 
         # dump whole chat log at last step
         if step.is_last and self.chat_history:
