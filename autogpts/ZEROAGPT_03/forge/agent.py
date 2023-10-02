@@ -25,6 +25,8 @@ from forge.sdk.memory.memstore_tools import add_chat_memory
 
 from forge.sdk.ai_planning import AIPlanning
 
+# from elevenlabs import generate, play
+
 LOG = ForgeLogger(__name__)
 
 
@@ -208,6 +210,9 @@ class ForgeAgent(Agent):
         content: str,
         is_function: bool = False,
         function_name: str = None):
+
+        for k,v in self.chat_history.items():
+            LOG.info(f"🗣️ {k} loaded key in chat_history")
         
         if is_function:
             chat_struct = {
@@ -471,7 +476,11 @@ class ForgeAgent(Agent):
                     ability["name"]
                 )
 
-            output = str(output) if output else "None"
+            # change output to string if there is output
+            if isinstance(output, bytes):
+                output = output.decode()
+            elif output:
+                output = str(output)
 
                                     # add to converstion
                                     # add arguments to function content, if any
@@ -492,20 +501,22 @@ class ForgeAgent(Agent):
             step.output = answer["thoughts"]["speak"]
             step.is_last = answer["thoughts"]["last_step"]
 
-            except json.JSONDecodeError as e:
-                # Handle JSON decoding errors
-                # notice when AI does this once it starts doing it repeatingly
-                LOG.error(f"agent.py - JSON error, ignoring response: {e}")
-                LOG.error(f"🤖 {chat_response['choices'][0]['message']['content']}")
+            # have ai speak through speakers
+            # cant use yet due to pydantic version differences
+            # audio = generate(
+            #     text=answer["thoughts"]["speak"],
+            #     voice="Dorothy",
+            #     model="eleven_multilingual_v2"
+            # )
 
-                LOG.info("Clearning chat and resending instructions due to JSON error")
-                await self.clear_chat(task_id, True, True)
-            except Exception as e:
-                # Handle other exceptions
-                LOG.error(f"execute_step error: {e}")
+            # play(audio)
 
-                # LOG.info("Clearning chat and resending instructions due to error")
-                # await self.clear_chat(task_id)
+        except json.JSONDecodeError as e:
+            # Handle JSON decoding errors
+            LOG.error(f"JSON error when decoding: {e}")
+        except Exception as e:
+            # Handle other exceptions
+            LOG.error(f"execute_step error: {e}")
 
         # dump whole chat log at last step
         if step.is_last and self.chat_history:

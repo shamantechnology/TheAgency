@@ -2,7 +2,7 @@ from typing import List, Match
 import re
 import os
 
-from forge.sdk.memory.memstore import ChromaMemStore
+from forge.sdk.memory.memstore_tools import add_memory
 
 from ...forge_log import ForgeLogger
 from ..registry import ability
@@ -102,10 +102,15 @@ async def list_files(agent, task_id: str, path: str) -> List[str]:
     ],
     output_type="None",
 )
-async def write_file(agent, task_id: str, file_path: str, data: bytes) -> None:
+async def write_file(agent, task_id: str, file_name: str, data: bytes) -> None:
     """
     Write data to a file
     """
+    if isinstance(data, str):
+        # ai adding too many escape back slashes
+        data = data.replace("\\\\", '\\').encode()
+
+    agent.workspace.write(task_id=task_id, path=file_name, data=data)
     # convert to string and clean up data
     try:
         if isinstance(data, bytes):
@@ -124,8 +129,8 @@ async def write_file(agent, task_id: str, file_path: str, data: bytes) -> None:
     
     await agent.db.create_artifact(
         task_id=task_id,
-        file_name=file_path.split("/")[-1],
-        relative_path=file_path,
+        file_name=file_name.split("/")[-1],
+        relative_path=file_name,
         agent_created=True,
     )
 
@@ -136,19 +141,23 @@ async def write_file(agent, task_id: str, file_path: str, data: bytes) -> None:
     description="Read data from a file",
     parameters=[
         {
-            "name": "file_path",
-            "description": "Path to the file including file name",
+            "name": "file_name",
+            "description": "Name of the file",
             "type": "string",
             "required": True,
         },
     ],
     output_type="bytes",
 )
-async def read_file(agent, task_id: str, file_path: str) -> bytes:
+async def read_file(agent, task_id: str, file_name: str) -> bytes:
     """
     Read data from a file
     """
-    return agent.workspace.read(task_id=task_id, path=file_path)
+    read_file = agent.workspace.read(task_id=task_id, path=file_name)
+
+    add_memory(task_id, str(read_file), "read_file")
+    
+    return read_file
 
 @ability(
     name="search_in_file",
@@ -169,11 +178,11 @@ async def read_file(agent, task_id: str, file_path: str) -> bytes:
     ],
     output_type="list"
 )
-async def search_file(agent, task_id: str, file_path: str, regex: str) -> List[Match]:
+async def search_file(agent, task_id: str, file_name: str, regex: str) -> List[Match]:
     """
     Search file using regex
     """
-    open_file = agent.workspace.read(task_id=task_id, path=file_path)
+    open_file = agent.workspace.read(task_id=task_id, path=file_name)
 
     try:
         open_file = agent.workspace.read(task_id=task_id, path=file_name)
