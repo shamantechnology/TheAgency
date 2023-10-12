@@ -77,20 +77,8 @@ async def read_file_from_memory(agent, task_id: str, file_name: str) -> str:
         if len(memory_resp["documents"][0]) > 0:
             mem_doc = memory_resp["documents"][0][0][:255]
         else:
-            # add file to memory
-            # this was added due to AI always trying to read before adding
-            logger.info(f"Could not find file {file_name} - Adding to memory")
-            add_file = await add_file_to_memory(agent, task_id, file_name)
-            if "Error" not in add_file:
-                memory_resp = memory.query(
-                    task_id=task_id,
-                    query=file_name
-                )
-
-                if len(memory_resp["documents"][0]) > 0:
-                    mem_doc = memory_resp["documents"][0][0][:255]
-                else:
-                    mem_doc = "Error when adding file, use ability 'add_file_memory'"
+            # tell ai to use 'add_file_memory'
+            mem_doc = "File not found in memory. Add the file with ability 'add_file_memory'"
     except Exception as err:
         logger.error(f"mem_search failed: {err}")
         raise err

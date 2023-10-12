@@ -348,7 +348,7 @@ async def csv_sort_by_column(
         )
 
         sorted_df = df.sort_values(by=column)
-        sorted_df.to_csv(output_file, index=False)
+        sorted_df.to_csv(f"{gcwd}/{output_file}", index=False)
     except Exception as err:
         logger.error(f"csv_sort_by_column failed: {err}")
         return False
