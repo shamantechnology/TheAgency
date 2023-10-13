@@ -1,15 +1,19 @@
 """
 Memory tool for document search
 """
-from typing import List
+# from typing import List
 
-import os
+# import os
 from ..forge_log import ForgeLogger
 from .registry import ability
 
 from forge.sdk.memory.memstore import ChromaMemStore
 
 from ..ai_memory import AIMemory
+
+import requests
+from bs4 import BeautifulSoup
+from forge.sdk.memory.memstore_tools import add_website_memory
 
 logger = ForgeLogger(__name__)
 
@@ -49,6 +53,54 @@ async def add_file_to_memory(agent, task_id: str, file_name: str) -> str:
     return f"{file_name} added to memory"
 
 @ability(
+    name="add_website_to_memory",
+    description="Get website and store content in your memory",
+    parameters=[
+        {
+            "name": "url",
+            "description": "Website's url",
+            "type": "string",
+            "required": True,
+        },
+    ],
+    output_type="str",
+)
+async def add_website_to_memory(agent, task_id: str, url: str) -> str:
+    """
+    add_website_to_memory
+
+    takes a string URL and returns HTML and converts it to text
+    stores converted text in vector database
+    VSDB: chromadb
+    """
+    try:
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36'}
+
+        req = requests.get(
+            url=url,
+            headers=headers,
+            timeout=5
+        )
+
+        html_soap = BeautifulSoup(req.text, "html.parser")
+        html_text = html_soap.get_text()
+
+        logger.info(f"Adding {url}\ncontent len {len(html_text)}")
+        
+        add_website_memory(
+            task_id,
+            url,
+            html_text
+        )
+
+        print(f"Added {url} to memory")
+    except Exception as err:
+        logger.error(f"add_website_to_memory failed: {err}")
+        print(f"{url} failed to save: {err}")
+
+
+@ability(
     name="read_file_from_memory",
     description="Read file stored in your memory",
     parameters=[
@@ -73,9 +125,13 @@ async def read_file_from_memory(agent, task_id: str, file_name: str) -> str:
             query=file_name
         )
 
-        # get the most relevant document and shrink to 255
+        # get the most relevant document and shrink to 50
         if len(memory_resp["documents"][0]) > 0:
-            mem_doc = memory_resp["documents"][0][0][:255]
+            mem_doc = memory_resp["documents"][0][0]
+            if(len(mem_doc) > 50):
+                mem_doc = "This document is too long, use the ability 'mem_qna' to access it."
+            else:
+                mem_doc = memory_resp["documents"][0][0][:50]
         else:
             # tell ai to use 'add_file_memory'
             mem_doc = "File not found in memory. Add the file with ability 'add_file_memory'"
@@ -112,9 +168,12 @@ async def mem_search(agent, task_id: str, query: str) -> str:
             query=query
         )
 
-        # get the most relevant document and shrink to 255
-        if len(memory_resp["documents"][0]) > 0:
-            mem_doc = memory_resp["documents"][0][0][:255]
+        # get the most relevant document and shrink to 50
+        mem_doc = memory_resp["documents"][0][0]
+        if(len(mem_doc) > 50):
+            mem_doc = "This document is too long, use the ability 'mem_qna' to access it."
+        else:
+            mem_doc = memory_resp["documents"][0][0][:50]
     except Exception as err:
         logger.error(f"mem_search failed: {err}")
         raise err
@@ -160,3 +219,4 @@ async def mem_qna(agent, task_id: str, doc_search_query: str, doc_content_questi
         raise err
     
     return mem_doc
+

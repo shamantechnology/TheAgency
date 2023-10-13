@@ -1,19 +1,19 @@
 """
 web content abilities
 """
-import requests
-import os
-from bs4 import BeautifulSoup
+# import requests
+# import os
+# from bs4 import BeautifulSoup
 
-from forge.sdk.memory.memstore_tools import (
-    add_ability_memory,
-    add_website_memory
-)
+# from forge.sdk.memory.memstore_tools import (
+#     add_ability_memory,
+#     add_website_memory
+# )
 
-from ..forge_log import ForgeLogger
-from .registry import ability
+# from ..forge_log import ForgeLogger
+# from .registry import ability
 
-logger = ForgeLogger(__name__)
+# logger = ForgeLogger(__name__)
 
 # @ability(
 #     name="html_to_file",
@@ -111,43 +111,3 @@ logger = ForgeLogger(__name__)
 #     except Exception as err:
 #         logger.error(f"html_to_text_file failed: {err}")
 #         raise err
-@ability(
-    name="website_to_memstore",
-    description="Get website and store content in your memory",
-    parameters=[
-        {
-            "name": "url",
-            "description": "Website's url",
-            "type": "string",
-            "required": True,
-        },
-    ],
-    output_type="None",
-)
-async def website_to_memstore(agent, task_id: str, url: str) -> None:
-    """
-    website_to_memstore
-
-    takes a string URL and returns HTML and converts it to text
-    stores converted text in vector database
-    VSDB: chromadb
-    """
-    try:
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36'}
-
-        req = requests.get(
-            url=url,
-            headers=headers
-        )
-
-        html_soap = BeautifulSoup(req.text, "html.parser")
-
-        add_website_memory(
-            task_id,
-            url,
-            html_soap.get_text()
-        )
-    except Exception as err:
-        logger.error(f"html_to_text_file failed: {err}")
-        raise err

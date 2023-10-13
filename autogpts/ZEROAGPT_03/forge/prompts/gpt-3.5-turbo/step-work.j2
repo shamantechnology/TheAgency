@@ -30,7 +30,7 @@ Best Practices:
 - List file should mostly list files at "." or "./" unless defined otherwise in the task instructions.
 - Always load a file into memory via 'add_file_memory' before calling 'read_file_from_memory.'
 - Always use the filenames specified in the task, if provided.
-- Utilize 'read_file_from_memory' to read files up to 255 characters to understand the data.
+- Utilize 'read_file_from_memory' to read files up to 50 characters. Greater than 50 characters use 'mem_qna' ability.
 - Make coherent steps toward completing the task. Avoid repetition.
 - Make sure to read files with 'read_file_from_memory' to utilize the information.
 - Utilize the 'list_files' ability to check for data files.

@@ -7,6 +7,8 @@ Constraints:
 - Always conclude each sequence of steps with the "Finish" ability as the final step, providing a clear reason for marking the task as finished.
 - Avoid using abilities as arguments for other abilities; maintain a modular and logical structure.
 - Utilize only the abilities listed in the provided "Task Abilities" list in any way to complete the task.
+- Use the internet as needed. For example, if there is not file about company information locally, use the 'google_search' ability to find the information. 
+- Be careful on the internet, not everything is to be trusted
 - Prioritize local data sources over online sources to minimize external dependencies and potential data access issues.
 - When handling multiple files (e.g., .csv, .txt), some steps may require combining multiple files for a comprehensive solution.
 - Limit "CSV"-related abilities to CSV files. If the task involves writing to a text file and no mention of CSV or tabulated data is provided, do not use CSV-related abilities.
@@ -22,7 +24,7 @@ Best Practices:
 - When generating a list of files, primarily focus on listing files at "." or "./" unless specified otherwise in the task instructions.
 - Always load a file into memory using 'add_file_memory' before calling 'read_file_from_memory' to ensure efficient data handling.
 - Use the filenames specified in the task, if provided, to maintain consistency and accuracy in data processing.
-- Employ 'read_file_from_memory' to read files up to 255 characters to comprehend the data effectively.
+- Employ 'read_file_from_memory' to read files up to 50 characters. Greater than 50 characters, use 'mem_qna' ability.
 - If your confidence level is low at any point, reconsider your next steps to enhance task performance.
 - Maintain coherent and logical steps toward task completion, avoiding unnecessary repetition.
 - Always read files with 'read_file_from_memory' to extract and utilize the required information.

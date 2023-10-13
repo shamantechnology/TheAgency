@@ -244,7 +244,7 @@ class ForgeAgent(Agent):
             # pass
             LOG.error(f"plan_steps_prompt failed\n{err}")
         
-        # LOG.info(f"🖥️ planned steps\n{plan_steps}")
+        LOG.info(f"🖥️ planned steps\n{plan_steps}")
         
         ctoa_prompt_params = {
             "plan": plan_steps,
@@ -337,7 +337,7 @@ class ForgeAgent(Agent):
             chat_response = await chat_completion_request(
                 **chat_completion_parms)
         except Exception as err:
-            LOG.error("Clearning chat and resending instructions due to error")
+            LOG.error("Clearning chat and resending instructions due to API error")
             LOG.error(f"{err}")
             await self.clear_chat(task_id)
         else:
@@ -433,29 +433,34 @@ class ForgeAgent(Agent):
                                 if ability["name"] == "finish":
                                     step.is_last = True
                                     self.copy_to_temp(task_id)
-                    elif ability["name"] == "None" or ability["name"] == "":
-                       LOG.info("No ability found")
-                       self.add_chat(
-                            task_id=task_id,
-                            role="user",
-                            content=f"[{timestamp}] You didn't state a correct ability. You must use a real ability but if not using any set ability to None."
-                        ) 
+                        elif ability["name"] == "None" or ability["name"] == "":
+                            LOG.info("No ability found")
+                            self.add_chat(
+                                task_id=task_id,
+                                role="user",
+                                content=f"[{timestamp}] You didn't state a correct ability. You must use a real ability but if not using any set ability to None."
+                            ) 
                     
 
             except json.JSONDecodeError as e:
                 # Handle JSON decoding errors
+                # notice when AI does this once it starts doing it repeatingly
                 LOG.error(f"agent.py - JSON error when decoding chat_response: {e}")
                 LOG.error(f"{chat_response}")
+                self.add_chat(
+                    task_id=task_id,
+                    role="user",
+                    content=f"[{timestamp}] Your reply was not in the correct JSON format. Correct and retry.\n{self.instruction_msgs[task_id][0]}"
+                ) 
 
-                LOG.info("Clearning chat and resending instructions due to error")
-                await self.clear_chat(task_id)
+                # LOG.info("Clearning chat and resending instructions due to JSON error")
+                # await self.clear_chat(task_id)
             except Exception as e:
                 # Handle other exceptions
                 LOG.error(f"execute_step error: {e}")
-                LOG.info(f"chat_response: {chat_response}")
 
-                LOG.info("Clearning chat and resending instructions due to error")
-                await self.clear_chat(task_id)
+                # LOG.info("Clearning chat and resending instructions due to error")
+                # await self.clear_chat(task_id)
 
         # dump whole chat log at last step
         if step.is_last and task_id in self.chat_history:

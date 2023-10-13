@@ -72,7 +72,7 @@ class AIPlanning:
         chat_completion_parms = {
             "messages": chat_list,
             "model": self.model,
-            "temperature": 0.7
+            "temperature": 0
         }
         
         response = await chat_completion_request(
