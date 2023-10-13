@@ -48,7 +48,7 @@ async def add_file_to_memory(agent, task_id: str, file_name: str) -> str:
         )
     except Exception as err:
         logger.error(f"add_file_memory failed: {err}")
-        return f"Error adding {file_name} to memory: {err}"
+        raise err
     
     return f"{file_name} added to memory"
 
@@ -93,11 +93,12 @@ async def add_website_to_memory(agent, task_id: str, url: str) -> str:
             url,
             html_text
         )
-
-        print(f"Added {url} to memory")
+        
     except Exception as err:
         logger.error(f"add_website_to_memory failed: {err}")
-        print(f"{url} failed to save: {err}")
+        raise err
+
+    return f"Added {url} to memory"
 
 
 @ability(

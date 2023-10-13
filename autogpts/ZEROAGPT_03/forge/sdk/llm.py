@@ -50,7 +50,7 @@ async def chat_completion_request(
     except Exception as e:
         LOG.error("Unable to generate ChatCompletion response")
         LOG.error(f"Exception: {e}")
-        raise
+        raise e
 
 
 @retry(wait=wait_random_exponential(min=1, max=40), stop=stop_after_attempt(3))
