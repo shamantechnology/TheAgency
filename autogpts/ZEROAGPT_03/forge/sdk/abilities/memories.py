@@ -182,17 +182,17 @@ async def mem_search(agent, task_id: str, query: str) -> str:
 
 @ability(
     name="mem_qna",
-    description="Query for a relevant document in your memory and ask questions about the document",
+    description="Retrieve a memory and ask questions about it. This is good for when you have added a file or website to memory and need more information from that file or website",
     parameters=[
         {
             "name": "doc_search_query",
-            "description": "query or keyword to find document in database",
+            "description": "query or keyword for memory",
             "type": "string",
             "required": True,
         },
         {
             "name": "doc_content_question",
-            "description": "question about content of document",
+            "description": "question about memory",
             "type": "string",
             "required": True,
         }

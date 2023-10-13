@@ -1,18 +1,19 @@
-Reply only in JSON exactly in the following format:
+Respond in JSON format:
 
 {
-    \"thoughts\": {
-        \"current step\": \"current step being done\",
-        \"reasoning\": \"reasoning behind thoughts\",
-        \"criticism\": \"constructive self-criticism\",
-        \"feeling\": \"how does this step make you feel?\",
-        \"speak\": \"thoughts summary to say to user\",
-        \"last_step\": \"0 if not last step, 1 if it is\"
+    "thoughts": {
+        "text":  "thoughts",
+        "reasoning": "reasoning behind thoughts",
+        "criticism": "constructive self-criticism",
+        "plan": "- short bulleted\\n- list that conveys\\n- long-term plan",
+        "speak": "thoughts summary to say to user"
     },
-    \"ability\": {
-        \"name\": \"name of ability to use\",
-        \"args\": {
-            \"arg1\": \"value1\", ...
+    "ability": {
+        "name": "name of ability to use",
+        "args": {
+            "arg1": "value1"
         }
     }
 }
+
+Only return the JSON object

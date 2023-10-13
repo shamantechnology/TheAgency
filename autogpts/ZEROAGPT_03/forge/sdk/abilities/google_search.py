@@ -46,7 +46,7 @@ async def google_search(agent, task_id: str, query: str) -> str:
         ).execute()
 
         resp_list = []
-        for result in response["items"]:
+        for result in response["items"][:4]:
             resp_list.append({
                 "url": result["formattedUrl"],
                 "snippet": result["snippet"]
