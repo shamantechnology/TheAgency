@@ -51,6 +51,8 @@ class AIMemory:
             )
 
             if len(memory_resp["documents"][0]) > 0:
+                logger.info(
+                    f"Relevant docs found: {len(memory_resp['documents'][0])}")
                 self.relevant_doc = memory_resp["documents"][0][0]
         except Exception as err:
             logger.error(f"get_doc failed: {err}")

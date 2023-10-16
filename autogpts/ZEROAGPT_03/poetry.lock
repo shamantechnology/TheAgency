@@ -864,6 +864,17 @@ files = [
 ]
 
 [[package]]
+name = "diskcache"
+version = "5.6.3"
+description = "Disk Cache -- Disk and file backed persistent cache."
+optional = false
+python-versions = ">=3"
+files = [
+    {file = "diskcache-5.6.3-py3-none-any.whl", hash = "sha256:5e31b2d5fbad117cc363ebaf6b689474db18a1f6438bc82358b024abd4c2ca19"},
+    {file = "diskcache-5.6.3.tar.gz", hash = "sha256:2c3a3fa2743d8535d832ec61c2054a1641f41775aa7c556758a109941e33e4fc"},
+]
+
+[[package]]
 name = "distlib"
 version = "0.3.7"
 description = "Distribution utilities"
@@ -952,6 +963,43 @@ files = [
 mccabe = ">=0.7.0,<0.8.0"
 pycodestyle = ">=2.11.0,<2.12.0"
 pyflakes = ">=3.1.0,<3.2.0"
+
+[[package]]
+name = "flaml"
+version = "2.1.1"
+description = "A fast library for automated machine learning and tuning"
+optional = false
+python-versions = ">=3.6"
+files = [
+    {file = "FLAML-2.1.1-py3-none-any.whl", hash = "sha256:ba34f1a06f3cbc6bb23a2ea4830a264375f6bba497f402122a73e42647a15535"},
+    {file = "FLAML-2.1.1.tar.gz", hash = "sha256:53e94aacc996da80fe779bc6833d3b25c80c77fe11667d0912798e49293282eb"},
+]
+
+[package.dependencies]
+NumPy = ">=1.17.0rc1"
+
+[package.extras]
+autogen = ["diskcache", "openai (==0.27.8)", "termcolor"]
+automl = ["lightgbm (>=2.3.1)", "pandas (>=1.1.4)", "scikit-learn (>=0.24)", "scipy (>=1.4.1)", "xgboost (>=0.90)"]
+autozero = ["packaging", "pandas", "scikit-learn"]
+azureml = ["azureml-mlflow"]
+benchmark = ["catboost (>=0.26)", "pandas (==1.1.4)", "psutil (==5.8.0)", "xgboost (==1.3.3)"]
+blendsearch = ["optuna (==2.8.0)", "packaging"]
+catboost = ["catboost (>=0.26)"]
+forecast = ["hcrystalball (==0.1.10)", "holidays (<0.14)", "prophet (>=1.0.1)", "pytorch-forecasting (>=0.9.0)", "pytorch-lightning (==1.9.0)", "statsmodels (>=0.12.2)", "tensorboardX (==2.6)"]
+hf = ["datasets", "nltk", "rouge-score", "seqeval", "transformers[torch] (==4.26)"]
+mathchat = ["diskcache", "openai (==0.27.8)", "pydantic (==1.10.9)", "sympy", "termcolor", "wolframalpha"]
+nlp = ["datasets", "nltk", "rouge-score", "seqeval", "transformers[torch] (==4.26)"]
+nni = ["nni"]
+notebook = ["jupyter"]
+openai = ["diskcache", "openai (==0.27.8)"]
+ray = ["ray[tune] (>=1.13,<2.0)"]
+retrievechat = ["chromadb", "diskcache", "openai (==0.27.8)", "sentence-transformers", "termcolor", "tiktoken"]
+spark = ["joblib (<1.3.0)", "joblibspark (>=0.5.0)", "pyspark (>=3.2.0)"]
+synapse = ["joblib (<1.3.0)", "joblibspark (>=0.5.0)", "optuna (==2.8.0)", "pyspark (>=3.2.0)"]
+test = ["catboost (>=0.26,<1.2)", "coverage (>=5.3)", "dataclasses", "datasets", "hcrystalball (==0.1.10)", "ipykernel", "joblib (<1.3.0)", "joblibspark (>=0.5.0)", "lightgbm (>=2.3.1)", "mlflow", "nbconvert", "nbformat", "nltk", "openml", "optuna (==2.8.0)", "packaging", "pandas (>=1.1.4)", "pre-commit", "psutil (==5.8.0)", "pydantic (==1.10.9)", "pyspark (>=3.2.0)", "pytest (>=6.1.1)", "pytorch-forecasting (>=0.9.0,<=0.10.1)", "pytorch-lightning (<1.9.1)", "requests (<2.29.0)", "rgf-python", "rouge-score", "scikit-learn (>=0.24)", "scipy (>=1.4.1)", "seqeval", "statsmodels (>=0.12.2)", "sympy", "tensorboardX (==2.6)", "thop", "torch", "torchvision", "transformers[torch] (==4.26)", "wolframalpha", "xgboost (>=0.90)"]
+ts-forecast = ["hcrystalball (==0.1.10)", "holidays (<0.14)", "prophet (>=1.0.1)", "statsmodels (>=0.12.2)"]
+vw = ["scikit-learn", "vowpalwabbit (>=8.10.0,<9.0.0)"]
 
 [[package]]
 name = "flatbuffers"
@@ -1217,8 +1265,8 @@ files = [
 [package.dependencies]
 google-api-core = {version = ">=1.34.0,<2.0.dev0 || >=2.11.dev0,<3.0.0dev", extras = ["grpc"]}
 proto-plus = [
-    {version = ">=1.22.2,<2.0.0dev", markers = "python_version >= \"3.11\""},
     {version = ">=1.22.0,<2.0.0dev", markers = "python_version < \"3.11\""},
+    {version = ">=1.22.2,<2.0.0dev", markers = "python_version >= \"3.11\""},
 ]
 protobuf = ">=3.19.5,<3.20.0 || >3.20.0,<3.20.1 || >3.20.1,<4.21.0 || >4.21.0,<4.21.1 || >4.21.1,<4.21.2 || >4.21.2,<4.21.3 || >4.21.3,<4.21.4 || >4.21.4,<4.21.5 || >4.21.5,<5.0.0dev"
 
@@ -1237,12 +1285,12 @@ files = [
 google-auth = ">=2.14.1,<3.0.dev0"
 googleapis-common-protos = ">=1.56.2,<2.0.dev0"
 grpcio = [
-    {version = ">=1.49.1,<2.0dev", optional = true, markers = "python_version >= \"3.11\" and extra == \"grpc\""},
     {version = ">=1.33.2,<2.0dev", optional = true, markers = "python_version < \"3.11\" and extra == \"grpc\""},
+    {version = ">=1.49.1,<2.0dev", optional = true, markers = "python_version >= \"3.11\" and extra == \"grpc\""},
 ]
 grpcio-status = [
-    {version = ">=1.49.1,<2.0.dev0", optional = true, markers = "python_version >= \"3.11\" and extra == \"grpc\""},
     {version = ">=1.33.2,<2.0.dev0", optional = true, markers = "python_version < \"3.11\" and extra == \"grpc\""},
+    {version = ">=1.49.1,<2.0.dev0", optional = true, markers = "python_version >= \"3.11\" and extra == \"grpc\""},
 ]
 protobuf = ">=3.19.5,<3.20.0 || >3.20.0,<3.20.1 || >3.20.1,<4.21.0 || >4.21.0,<4.21.1 || >4.21.1,<4.21.2 || >4.21.2,<4.21.3 || >4.21.3,<4.21.4 || >4.21.4,<4.21.5 || >4.21.5,<5.0.0.dev0"
 requests = ">=2.18.0,<3.0.0.dev0"
@@ -2750,8 +2798,8 @@ files = [
 
 [package.dependencies]
 numpy = [
-    {version = ">=1.23.2", markers = "python_version == \"3.11\""},
     {version = ">=1.22.4", markers = "python_version < \"3.11\""},
+    {version = ">=1.23.2", markers = "python_version == \"3.11\""},
 ]
 python-dateutil = ">=2.8.2"
 pytz = ">=2020.1"
@@ -3166,6 +3214,30 @@ files = [
 
 [package.dependencies]
 pyasn1 = ">=0.4.6,<0.6.0"
+
+[[package]]
+name = "pyautogen"
+version = "0.1.10"
+description = "Enabling Next-Gen LLM Applications via Multi-Agent Conversation Framework"
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "pyautogen-0.1.10-py3-none-any.whl", hash = "sha256:17ab668a5ba5e5cd2fceaebac4e4507eaada5124c21555cd4cffb0635dbc814b"},
+    {file = "pyautogen-0.1.10.tar.gz", hash = "sha256:ebf459b74f4313ec549584eafbe60b9a6fc4ab6c38f7ffa9d29a4e4078b15fc2"},
+]
+
+[package.dependencies]
+diskcache = "*"
+flaml = "*"
+openai = "*"
+python-dotenv = "*"
+termcolor = "*"
+
+[package.extras]
+blendsearch = ["flaml[blendsearch]"]
+mathchat = ["pydantic (==1.10.9)", "sympy", "wolframalpha"]
+retrievechat = ["chromadb", "pypdf", "sentence-transformers", "tiktoken"]
+test = ["chromadb", "coverage (>=5.3)", "datasets", "ipykernel", "lancedb", "nbconvert", "nbformat", "pre-commit", "pydantic (==1.10.9)", "pytest (>=6.1.1)", "pytest-asyncio", "sympy", "tiktoken", "wolframalpha"]
 
 [[package]]
 name = "pycodestyle"
@@ -3767,6 +3839,20 @@ files = [
 
 [package.extras]
 doc = ["reno", "sphinx", "tornado (>=4.5)"]
+
+[[package]]
+name = "termcolor"
+version = "2.3.0"
+description = "ANSI color formatting for output in terminal"
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "termcolor-2.3.0-py3-none-any.whl", hash = "sha256:3afb05607b89aed0ffe25202399ee0867ad4d3cb4180d98aaf8eefa6a5f7d475"},
+    {file = "termcolor-2.3.0.tar.gz", hash = "sha256:b5b08f68937f138fe92f6c089b99f1e2da0ae56c52b78bf7075fd95420fd9a5a"},
+]
+
+[package.extras]
+tests = ["pytest", "pytest-cov"]
 
 [[package]]
 name = "tokenizers"
@@ -4467,4 +4553,4 @@ requests = ">=2.31"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "5ecb046081dd58fbc1f711d6e1e2da6b2ddfce6567f4ce8431108bf7127d1f45"
+content-hash = "84fb46e60a25e9f31a07090c91758aa4172b2dc3e849170c71fbbd130b24f7cd"

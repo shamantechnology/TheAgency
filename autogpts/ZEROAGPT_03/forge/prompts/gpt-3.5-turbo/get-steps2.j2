@@ -18,6 +18,7 @@ Efficiently use discovered files and resources.
 
 Best Practices:
 
+Always keep a note of the files from the 'list_files' abilities as all files are needed to complete the task.
 Look for specific formats or examples in the task description.
 Focus on files at "." or "./" when listing files.
 Load files into memory before reading them.
@@ -31,3 +32,7 @@ Analyze structure before adding data to a CSV.
 Categorize CSV data accurately before merging files.
 Verify usernames' spelling and case from the source website.
 Always ensure that these guidelines are followed for successful task completion.
+When there is more than one CSV file, try to see if you can merge them as they might contain needed data. 
+
+Examples:
+If one file has a column ID and another has a column named ID you can merge them with 'csv_merge("output.csv", "file1.csv", "file2.csv", "ID")'

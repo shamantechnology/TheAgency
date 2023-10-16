@@ -32,8 +32,8 @@ class ForgeAgent(Agent):
     def __init__(self, database: AgentDB, workspace: Workspace):
         super().__init__(database, workspace)
         
-        # initialize chat history per uuid
-        self.chat_history = {}
+        # initialize chat history
+        self.chat_history = []
 
         # expert profile
         self.expert_profile = None
@@ -128,8 +128,8 @@ class ForgeAgent(Agent):
         
         try:
             # cut down on messages being repeated in chat
-            if chat_struct not in self.chat_history[task_id]:
-                self.chat_history[task_id].append(chat_struct)
+            if chat_struct not in self.chat_history:
+                self.chat_history.append(chat_struct)
             else:
                 # resend the instructions to continue AI on its goal
                 # usually the instructions are the last messages of the
@@ -141,23 +141,14 @@ class ForgeAgent(Agent):
                 # adding note to AI
                 chat_struct["role"] = "user"
                 timestamp = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
-                remind_msg = f"[{timestamp}] Please complete the task by following the steps provided, and avoid hallucinating."
+                remind_msg = f"[{timestamp}] Take a breath. Please complete the task by following the steps provided, and avoid hallucinating."
                 chat_struct["content"] = remind_msg
 
                 LOG.info(f"sending remind message\n{remind_msg}")
-                self.chat_history[task_id].append(chat_struct)
+                self.chat_history.append(chat_struct)
 
         except KeyError:
-            self.chat_history[task_id] = [chat_struct]
-
-        # add chat memory
-        if not is_function and chat_struct not in self.chat_history[task_id]:
-            try:
-                add_chat_memory(task_id, chat_struct)
-            except Exception as err:
-                LOG.info(f"Adding chat memory failed: {err}")
-
-    
+            self.chat_history = [chat_struct]
 
     async def set_instruction_messages(self, task_id: str):
         """
@@ -187,6 +178,13 @@ class ForgeAgent(Agent):
         # AI planning and steps way
 
         task = await self.db.get_task(task_id)
+
+        # save and clear chat history
+        if len(self.chat_history) > 0:
+            for chat in self.chat_history:
+                add_chat_memory(task_id, chat)
+        
+        self.chat_history = []
 
         # add system prompts to chat for task
         # set up reply json with alternative created
@@ -270,16 +268,22 @@ class ForgeAgent(Agent):
         await self.add_chat(task_id, "user", task_prompt)
         # ----------------------------------------------------
 
-    async def clear_chat(self, task_id: str):
+    async def clear_chat(self, task_id: str, last_action: str = None):
         """
         Clear chat and remake with instruction messages
         """
-        LOG.info(f"CHAT DUMP\n\n{self.chat_history[task_id]}\n\n")
+        LOG.info(f"CHAT DUMP\n\n{self.chat_history}\n\n")
 
         # clear chat and rebuild
-        self.chat_history[task_id] = []
+        self.chat_history = []
         self.instruction_msgs[task_id] = []
         await self.set_instruction_messages(task_id)
+
+        if last_action:
+            self.chat_history.append({
+                "role": "user",
+                "content": f"You ran into an error and had to be reset.\nYour last message was '{last_action}'"
+            })
 
     def copy_to_temp(self, task_id: str):
         """
@@ -328,9 +332,9 @@ class ForgeAgent(Agent):
         # load current chat into chat completion
         try:
             chat_completion_parms = {
-                "messages": self.chat_history[task_id],
+                "messages": self.chat_history,
                 "model": os.getenv("OPENAI_MODEL"),
-                "temperature": 0.7
+                "temperature": 0.5
             }
 
             chat_response = await chat_completion_request(
@@ -340,8 +344,8 @@ class ForgeAgent(Agent):
             # will have to cut down chat or clear it out
             LOG.error("Clearning chat and resending instructions due to API error")
             LOG.error(f"{err}")
-            LOG.error(f"last chat {self.chat_history[task_id][-1]}")
-            await self.clear_chat(task_id)
+            LOG.error(f"last chat {self.chat_history[-1]}")
+            await self.clear_chat(task_id, self.chat_history[-1])
         else:
             # add response to chat log
             # LOG.info(f"⚙️ chat_response\n{chat_response}")
@@ -409,7 +413,7 @@ class ForgeAgent(Agent):
                                 await self.add_chat(
                                     task_id=task_id,
                                     role="system",
-                                    content=f"[{timestamp}] Ability {ability['name']} failed to run: {err}"
+                                    content=f"[{timestamp}] Ability {ability['name']} failed to run: {err}\nReview this error. Make sure you are calling the ability correctly."
                                 )
                             else:
                                 if output == None:
@@ -472,7 +476,7 @@ class ForgeAgent(Agent):
 
         # dump whole chat log at last step
         if step.is_last and task_id in self.chat_history:
-            LOG.info(f"{pprint.pformat(self.chat_history[task_id])}")
+            LOG.info(f"{pprint.pformat(self.chat_history, indext=4, width=100)}")
 
         # Return the completed step
         return step

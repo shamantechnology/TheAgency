@@ -17,6 +17,9 @@ from forge.sdk.memory.memstore_tools import add_website_memory
 
 logger = ForgeLogger(__name__)
 
+# change if you want more text or data sent to agent
+MAX_OUT_SIZE = 150
+
 @ability(
     name="add_file_to_memory",
     description="Add content of file to your memory. " \
@@ -129,10 +132,10 @@ async def read_file_from_memory(agent, task_id: str, file_name: str) -> str:
         # get the most relevant document and shrink to 50
         if len(memory_resp["documents"][0]) > 0:
             mem_doc = memory_resp["documents"][0][0]
-            if(len(mem_doc) > 50):
+            if(len(mem_doc) > MAX_OUT_SIZE):
                 mem_doc = "This document is too long, use the ability 'mem_qna' to access it."
             else:
-                mem_doc = memory_resp["documents"][0][0][:50]
+                mem_doc = memory_resp["documents"][0][0][:MAX_OUT_SIZE]
         else:
             # tell ai to use 'add_file_memory'
             mem_doc = "File not found in memory. Add the file with ability 'add_file_memory'"
@@ -169,12 +172,12 @@ async def mem_search(agent, task_id: str, query: str) -> str:
             query=query
         )
 
-        # get the most relevant document and shrink to 50
+        # get the most relevant document and shrink
         mem_doc = memory_resp["documents"][0][0]
-        if(len(mem_doc) > 50):
+        if(len(mem_doc) > 187):
             mem_doc = "This document is too long, use the ability 'mem_qna' to access it."
         else:
-            mem_doc = memory_resp["documents"][0][0][:50]
+            mem_doc = memory_resp["documents"][0][0][:187]
     except Exception as err:
         logger.error(f"mem_search failed: {err}")
         raise err
@@ -183,16 +186,16 @@ async def mem_search(agent, task_id: str, query: str) -> str:
 
 @ability(
     name="mem_qna",
-    description="Retrieve a memory and ask questions about it. This is good for when you have added a file or website to memory and need more information from that file or website",
+    description="Ask a question about an old stored memory",
     parameters=[
         {
-            "name": "doc_search_query",
-            "description": "query or keyword for memory",
+            "name": "memory_name",
+            "description": "name or keyword for memory",
             "type": "string",
             "required": True,
         },
         {
-            "name": "doc_content_question",
+            "name": "memory_question",
             "description": "question about memory",
             "type": "string",
             "required": True,
@@ -200,13 +203,13 @@ async def mem_search(agent, task_id: str, query: str) -> str:
     ],
     output_type="str",
 )
-async def mem_qna(agent, task_id: str, doc_search_query: str, doc_content_question: str):
+async def mem_qna(agent, task_id: str, memory_name: str, doc_content_question: str):
     mem_doc = "No documents found"
     try:
         aimem = AIMemory(
             agent.workspace,
             task_id,
-            doc_search_query,
+            memory_name,
             doc_content_question,
             "gpt-3.5-turbo-16k"
         )

@@ -46,3 +46,11 @@ Abilities that start with 'csv' are ONLY for CSV files; do not use them for anyt
 When searching for usernames online, remember that some start with @ to link or reference a username.
 Double-check the spelling and case of a username by going to its source.
 If looking into a company, find clarifying information about the company first before digging in.
+When there is more than one CSV file, try to see if you can merge them as they might contain needed data. 
+
+Examples:
+- Two CSV files one named file1.csv and the other file2.csv
+    * Check and note the column present that is the same on both
+        > csv_get_same_columns("file1.csv", "file2.csv") -> ["ID"]
+    * Merge on matching column
+        > csv_merge("output.csv", "file1.csv", "file2.csv", "ID")

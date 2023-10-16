@@ -60,7 +60,7 @@ class AIPlanning:
                 "content": "You are an professional Project Manager."
             },
             {
-                "role": "system", 
+                "role": "user", 
                 "content": step_prompt
             }
         ]
@@ -72,7 +72,7 @@ class AIPlanning:
         chat_completion_parms = {
             "messages": chat_list,
             "model": self.model,
-            "temperature": 0.2
+            "temperature": 0.7
         }
         
         response = await chat_completion_request(

@@ -95,6 +95,7 @@ async def transcribe_audio(
         LOG.error(f"Exception: {e}")
         raise
 
+
 ########################
 #    Google LLM        #
 ########################
