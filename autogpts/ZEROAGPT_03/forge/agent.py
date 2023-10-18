@@ -192,7 +192,7 @@ class ForgeAgent(Agent):
 
         # add to messages
         # wont memory store this as static
-        LOG.info(f"🖥️  {system_prompt}")
+        # LOG.info(f"🖥️  {system_prompt}")
         self.instruction_msgs[task_id].append(("system", system_prompt))
         await self.add_chat(task_id, "system", system_prompt)
 
@@ -202,7 +202,7 @@ class ForgeAgent(Agent):
             **{"abilities": self.abilities.list_abilities_for_prompt()}
         )
 
-        LOG.info(f"🖥️  {abilities_prompt}")
+        # LOG.info(f"🖥️  {abilities_prompt}")
         self.instruction_msgs[task_id].append(("system", abilities_prompt))
         await self.add_chat(task_id, "system", abilities_prompt)
 

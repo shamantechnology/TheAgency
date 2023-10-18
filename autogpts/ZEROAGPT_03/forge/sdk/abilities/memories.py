@@ -126,7 +126,8 @@ async def read_file_from_memory(agent, task_id: str, file_name: str) -> str:
         memory = ChromaMemStore(chroma_dir)
         memory_resp = memory.query(
             task_id=task_id,
-            query=file_name
+            query="",
+            filters={"filename": file_name}
         )
 
         # get the most relevant document and shrink to 50
@@ -203,14 +204,14 @@ async def mem_search(agent, task_id: str, query: str) -> str:
     ],
     output_type="str",
 )
-async def mem_qna(agent, task_id: str, memory_name: str, doc_content_question: str):
+async def mem_qna(agent, task_id: str, memory_name: str, memory_question: str):
     mem_doc = "No documents found"
     try:
         aimem = AIMemory(
             agent.workspace,
             task_id,
             memory_name,
-            doc_content_question,
+            memory_question,
             "gpt-3.5-turbo-16k"
         )
 
