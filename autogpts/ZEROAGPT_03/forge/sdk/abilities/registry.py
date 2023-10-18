@@ -143,7 +143,11 @@ class AbilityRegister:
         return self.abilities
 
     def list_abilities_for_prompt(self) -> List[str]:
-        return [str(ability) for ability in self.abilities.values()]
+        abilities_list = []
+        for ability in self.abilities.values():
+            # remove new lines to save space going to llm
+            abilities_list.append(str(ability).replace("\n", ""))
+        return sorted(abilities_list)
 
     def abilities_description(self) -> str:
         abilities_by_category = {}
@@ -154,8 +158,8 @@ class AbilityRegister:
 
         abilities_description = ""
         for category, abilities in abilities_by_category.items():
-            if abilities_description != "":
-                abilities_description += "\n"
+            # if abilities_description != "":
+            #     abilities_description += "\n"
             abilities_description += f"{category}:"
             for ability in abilities:
                 abilities_description += f"  {ability}"

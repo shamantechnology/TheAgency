@@ -2,7 +2,6 @@ import typing
 import os
 
 import openai
-import google.generativeai as palm
 from tenacity import retry, stop_after_attempt, wait_random_exponential
 
 from .forge_log import ForgeLogger
@@ -50,7 +49,7 @@ async def chat_completion_request(
     except Exception as e:
         LOG.error("Unable to generate ChatCompletion response")
         LOG.error(f"Exception: {e}")
-        raise
+        raise e
 
 
 @retry(wait=wait_random_exponential(min=1, max=40), stop=stop_after_attempt(3))
@@ -94,20 +93,3 @@ async def transcribe_audio(
         LOG.error("Unable to generate ChatCompletion response")
         LOG.error(f"Exception: {e}")
         raise
-
-########################
-#    Google LLM        #
-########################
-# msg format
-# author = role
-# { "author": "...", "content": "..." }
-@retry(wait=wait_random_exponential(min=1, max=40), stop=stop_after_attempt(3))
-async def palm_chat_request(messages: str | typing.List, temperature: float = 1.0) -> str | None:
-    palm.configure(api_key=os.getenv("PALM_API_KEY"))
-
-    resp = await palm.chat_async(
-        messages=messages,
-        temperature=temperature
-    )
-    
-    return resp.last

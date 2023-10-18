@@ -1,0 +1,38 @@
+Generate concise steps for the given task while adhering to the following constraints and best practices:
+
+Task: '{{ task }}'
+
+Constraints:
+
+Conclude each sequence of steps with the "Finish" ability, explaining why the task is finished.
+Avoid using abilities as arguments for other abilities.
+Utilize only the provided "Task Abilities."
+Prioritize local data sources over online sources.
+Handle multiple files as needed.
+Limit "CSV" abilities to CSV files only.
+Include only essential files in the task.
+Ensure precision in data and results.
+Thoroughly analyze data before marking the task as finished.
+Assume local files are in the same folder as the source code.
+Efficiently use discovered files and resources.
+
+Best Practices:
+
+Always keep a note of the files from the 'list_files' abilities as all files are needed to complete the task.
+Look for specific formats or examples in the task description.
+Focus on files at "." or "./" when listing files.
+Load files into memory before reading them.
+Use 'mem_qna' for files longer than 50 characters.
+Reevaluate steps if confidence is low.
+Maintain logical steps, avoiding unnecessary repetition.
+Analyze and understand data without relying on specific abilities.
+Add files to memory if not found initially.
+Create missing columns in CSV files before adding data.
+Analyze structure before adding data to a CSV.
+Categorize CSV data accurately before merging files.
+Verify usernames' spelling and case from the source website.
+Always ensure that these guidelines are followed for successful task completion.
+When there is more than one CSV file, try to see if you can merge them as they might contain needed data. 
+
+Examples:
+If one file has a column ID and another has a column named ID you can merge them with 'csv_merge("output.csv", "file1.csv", "file2.csv", "ID")'

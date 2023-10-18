@@ -32,8 +32,8 @@ class ForgeAgent(Agent):
     def __init__(self, database: AgentDB, workspace: Workspace):
         super().__init__(database, workspace)
         
-        # initialize chat history per uuid
-        self.chat_history = {}
+        # initialize chat history
+        self.chat_history = []
 
         # expert profile
         self.expert_profile = None
@@ -44,6 +44,7 @@ class ForgeAgent(Agent):
 
         # ai plan
         self.ai_plan = None
+        self.plan_steps = None
 
         # instruction messages
         self.instruction_msgs = {}
@@ -100,13 +101,13 @@ class ForgeAgent(Agent):
         LOG.info("💡 Profile generated!")
         # add system prompts to chat for task
         self.instruction_msgs[task.task_id] = []
-        await self.set_instruction_messages(task.task_id, task.input)
+        await self.set_instruction_messages(task.task_id)
 
         self.task_steps_amount[task.task_id] = 0
 
         return task
     
-    def add_chat(self, 
+    async def add_chat(self, 
         task_id: str, 
         role: str, 
         content: str,
@@ -127,72 +128,29 @@ class ForgeAgent(Agent):
         
         try:
             # cut down on messages being repeated in chat
-            if chat_struct not in self.chat_history[task_id]:
-                self.chat_history[task_id].append(chat_struct)
+            if chat_struct not in self.chat_history:
+                self.chat_history.append(chat_struct)
             else:
                 # resend the instructions to continue AI on its goal
                 # usually the instructions are the last messages of the
                 # self.instruction_msgs but change if not
+                
+                LOG.info("Stuck in a repeat loop. Clearing and resetting")
+                await self.clear_chat(task_id)
+                
+                # adding note to AI
                 chat_struct["role"] = "user"
                 timestamp = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
-                chat_struct["content"] = f"[{timestamp}] You have gone off course and repeating the same step. Remember the instructions you are supposed to be working through and move on\n\n{self.instruction_msgs[-1]}"
-                self.chat_history[task_id].append(chat_struct)
+                remind_msg = f"[{timestamp}] Take a breath. Please complete the task by following the steps provided, and avoid hallucinating."
+                chat_struct["content"] = remind_msg
+
+                LOG.info(f"sending remind message\n{remind_msg}")
+                self.chat_history.append(chat_struct)
 
         except KeyError:
-            self.chat_history[task_id] = [chat_struct]
+            self.chat_history = [chat_struct]
 
-        # add chat memory
-        if not is_function and chat_struct not in self.chat_history[task_id]:
-            try:
-                add_chat_memory(task_id, chat_struct)
-            except Exception as err:
-                LOG.info(f"Adding chat memory failed: {err}")
-
-    async def cut_chat(self, task_id: str):
-        """
-        Cut down chat and remake
-        including beginning needed system messages
-        Also 2nd to last message to add context
-        which most likely wasn't the message to cause
-        a token error
-        """
-
-        LOG.info(f"CHAT DUMP\n\n{self.chat_history[task_id]}\n\n")
-        LOG.info(f"len of chat history @ {task_id}: {len(self.chat_history[task_id])}")
-        LOG.info(f"len of instruction msgs @ {task_id}: {len(self.instruction_msgs[task_id])}")
-
-        if len(self.chat_history[task_id]) > len(self.instruction_msgs[task_id]):
-            # get last two assistant messages to add back in chat after refresh
-            # this will give system some context. Also add in message about
-            # how it went over its limits and needs to reduce
-
-            # chat_cnt = 0
-            # chis = self.chat_history[task_id]
-            # for ci in range(len(chis)-1, -1, -1):
-            #     if chis[ci]["role"] == "assistant" and chat_cnt < 1:
-            #         last_chat_history.append(chis[ci])
-            #         chat_cnt += 1
-
-            timestamp = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
-            warning_msg = {
-                "role": "user",
-                "content": f"[{timestamp}] You went over the token and content limits of the API. Adhere to short and concise messages in the given JSON format."
-            }
-
-        # clear chat and rebuild
-        self.chat_history[task_id] = []
-
-        for imsg in self.instruction_msgs[task_id]:
-            msg = {
-                "role": imsg[0],
-                "content": imsg[1]
-            }
-
-            self.chat_history[task_id].append(msg)
-
-        self.chat_history[task_id].append(warning_msg)
-
-    async def set_instruction_messages(self, task_id: str, task_input: str):
+    async def set_instruction_messages(self, task_id: str):
         """
         Add the call to action and response formatting
         system and user messages
@@ -206,7 +164,7 @@ class ForgeAgent(Agent):
 
         # # add to messages
         # # wont memory store this as static
-        # self.add_chat(task_id, "system", system_prompt)
+        # await self.add_chat(task_id, "system", system_prompt)
 
         # # add abilities prompt
         # abilities_prompt = self.prompt_engine.load_prompt(
@@ -214,10 +172,19 @@ class ForgeAgent(Agent):
         #     **{"abilities": self.abilities.list_abilities_for_prompt()}
         # )
 
-        # self.add_chat(task_id, "system", abilities_prompt)
+        # await self.add_chat(task_id, "system", abilities_prompt)
 
         # ----------------------------------------------------
         # AI planning and steps way
+
+        task = await self.db.get_task(task_id)
+
+        # save and clear chat history
+        if len(self.chat_history) > 0:
+            for chat in self.chat_history:
+                add_chat_memory(task_id, chat)
+        
+        self.chat_history = []
 
         # add system prompts to chat for task
         # set up reply json with alternative created
@@ -225,9 +192,9 @@ class ForgeAgent(Agent):
 
         # add to messages
         # wont memory store this as static
-        LOG.info(f"🖥️  {system_prompt}")
+        # LOG.info(f"🖥️  {system_prompt}")
         self.instruction_msgs[task_id].append(("system", system_prompt))
-        self.add_chat(task_id, "system", system_prompt)
+        await self.add_chat(task_id, "system", system_prompt)
 
         # add abilities prompt
         abilities_prompt = self.prompt_engine.load_prompt(
@@ -235,9 +202,9 @@ class ForgeAgent(Agent):
             **{"abilities": self.abilities.list_abilities_for_prompt()}
         )
 
-        LOG.info(f"🖥️  {abilities_prompt}")
+        # LOG.info(f"🖥️  {abilities_prompt}")
         self.instruction_msgs[task_id].append(("system", abilities_prompt))
-        self.add_chat(task_id, "system", abilities_prompt)
+        await self.add_chat(task_id, "system", abilities_prompt)
 
         # add role system prompt
         try:
@@ -261,14 +228,14 @@ class ForgeAgent(Agent):
             **role_prompt_params
         )
 
-        LOG.info(f"🖥️  {role_prompt}")
+        # LOG.info(f"🖥️  {role_prompt}")
         self.instruction_msgs[task_id].append(("system", role_prompt))
-        self.add_chat(task_id, "system", role_prompt)
+        await self.add_chat(task_id, "system", role_prompt)
 
         # setup call to action (cta) with task and abilities
         # use ai to plan the steps
         self.ai_plan = AIPlanning(
-            task_input,
+            task.input,
             task_id,
             self.abilities.list_abilities_for_prompt(),
             self.workspace,
@@ -279,16 +246,16 @@ class ForgeAgent(Agent):
         # while plan_steps_prompt is None:
         LOG.info("💡 Generating step plans...")
         try:
-            plan_steps = await self.ai_plan.create_steps()
+            self.plan_steps = await self.ai_plan.create_steps()
         except Exception as err:
             # pass
             LOG.error(f"plan_steps_prompt failed\n{err}")
         
-        LOG.info(f"🖥️ planned steps\n{plan_steps}")
+        LOG.info(f"🖥️ planned steps\n{self.plan_steps}")
         
         ctoa_prompt_params = {
-            "plan": plan_steps,
-            "task": task_input
+            "plan": self.plan_steps,
+            "task": task.input
         }
 
         task_prompt = self.prompt_engine.load_prompt(
@@ -296,14 +263,33 @@ class ForgeAgent(Agent):
             **ctoa_prompt_params
         )
 
-        LOG.info(f"🤓 {task_prompt}")
+        # LOG.info(f"🤓 {task_prompt}")
         self.instruction_msgs[task_id].append(("user", task_prompt))
-        self.add_chat(task_id, "user", task_prompt)
+        await self.add_chat(task_id, "user", task_prompt)
         # ----------------------------------------------------
+
+    async def clear_chat(self, task_id: str, last_action: str = None):
+        """
+        Clear chat and remake with instruction messages
+        """
+        LOG.info(f"CHAT DUMP\n\n{self.chat_history}\n\n")
+
+        # clear chat and rebuild
+        self.chat_history = []
+        self.instruction_msgs[task_id] = []
+        await self.set_instruction_messages(task_id)
+
+        if last_action:
+            self.chat_history.append({
+                "role": "user",
+                "content": f"You ran into an error and had to be reset.\nYour last message was '{last_action}'"
+            })
 
     def copy_to_temp(self, task_id: str):
         """
         Copy files created from cwd to temp
+        This was a temp fix due to the files not being copied but maybe
+        fixed in newer forge version
         """
         cwd = self.workspace.get_cwd_path(task_id)
         tmp = self.workspace.get_temp_path(task_id)
@@ -334,7 +320,7 @@ class ForgeAgent(Agent):
         # check if it is an even step and if it is send AI messages to take a breath
         print(f"Step {self.task_steps_amount[task_id]}")
         # if (self.task_steps_amount[task_id] % 2) == 0:
-        #     self.add_chat(
+        #     await self.add_chat(
         #         task_id,
         #         "user",
         #         "Step back and take a breath before continuing on"
@@ -346,22 +332,24 @@ class ForgeAgent(Agent):
         # load current chat into chat completion
         try:
             chat_completion_parms = {
-                "messages": self.chat_history[task_id],
+                "messages": self.chat_history,
                 "model": os.getenv("OPENAI_MODEL"),
-                "temperature": 0.7
+                "temperature": 0.5
             }
 
             chat_response = await chat_completion_request(
                 **chat_completion_parms)
         except Exception as err:
-            LOG.error("API token error. Cut down messages.")
-            await self.cut_chat(task_id)
-            
-            step.status = "completed"
+            LOG.error(f"[{timestamp}] llm error")
+            # will have to cut down chat or clear it out
+            LOG.error("Clearning chat and resending instructions due to API error")
+            LOG.error(f"{err}")
+            LOG.error(f"last chat {self.chat_history[-1]}")
+            await self.clear_chat(task_id, self.chat_history[-1])
         else:
             # add response to chat log
             # LOG.info(f"⚙️ chat_response\n{chat_response}")
-            self.add_chat(
+            await self.add_chat(
                 task_id,
                 "assistant",
                 chat_response["choices"][0]["message"]["content"],
@@ -376,16 +364,14 @@ class ForgeAgent(Agent):
                 # make sure about reply format
                 if ("ability" not in answer 
                         or "thoughts" not in answer):
-                    system_prompt = self.prompt_engine.load_prompt("system-reformat")
-                    
-                    self.add_chat(
-                        task_id,
-                        "system",
-                        f"Your reply was not in the given JSON format.\n{system_prompt}")
-                    
-                    LOG.info(f"chat[-1]: {self.chat_history[task_id][-1]}")
-                    LOG.info(f"⚙️ chat_response\n{chat_response}")
-
+                    # LOG.info("Clearning chat and resending instructions due to error")
+                    # await self.clear_chat(task_id)
+                    LOG.error(f"Answer in wrong format\n\n{answer}\n\n")
+                    await self.add_chat(
+                        task_id=task_id,
+                        role="user",
+                        content=f"[{timestamp}] Your reply was not in the correct JSON format. Correct and retry.\n{self.instruction_msgs[task_id][0]}"
+                    )
                 else:
                     # Set the step output and is_last from AI
                     if "speak" in answer["thoughts"]:
@@ -424,10 +410,10 @@ class ForgeAgent(Agent):
                             except Exception as err:
                                 LOG.error(f"Ability run failed: {err}")
                                 output = None
-                                self.add_chat(
+                                await self.add_chat(
                                     task_id=task_id,
                                     role="system",
-                                    content=f"[{timestamp}] Ability {ability['name']} failed to run: {err}"
+                                    content=f"[{timestamp}] Ability {ability['name']} failed to run: {err}\nReview this error. Make sure you are calling the ability correctly."
                                 )
                             else:
                                 if output == None:
@@ -446,7 +432,7 @@ class ForgeAgent(Agent):
                                 else:
                                     ccontent = output
 
-                                self.add_chat(
+                                await self.add_chat(
                                     task_id=task_id,
                                     role="function",
                                     content=ccontent,
@@ -459,36 +445,38 @@ class ForgeAgent(Agent):
                                 if ability["name"] == "finish":
                                     step.is_last = True
                                     self.copy_to_temp(task_id)
-
+                        elif ability["name"] == "None" or ability["name"] == "":
+                            LOG.info("No ability found")
+                            await self.add_chat(
+                                task_id=task_id,
+                                role="user",
+                                content=f"[{timestamp}] You didn't state a correct ability. You must use a real ability but if not using any set ability to None."
+                            ) 
                     
 
             except json.JSONDecodeError as e:
                 # Handle JSON decoding errors
+                # notice when AI does this once it starts doing it repeatingly
                 LOG.error(f"agent.py - JSON error when decoding chat_response: {e}")
                 LOG.error(f"{chat_response}")
-                step.status = "completed"
-                step.is_last = False
-                
-                system_prompt = self.prompt_engine.load_prompt("system-reformat")
-                self.add_chat(
-                    task_id,
-                    "system",
-                    f"Your reply was not JSON formatted.\n{system_prompt}")
+                await self.add_chat(
+                    task_id=task_id,
+                    role="user",
+                    content=f"[{timestamp}] Your reply was not in the correct JSON format. Correct and retry.\n{self.instruction_msgs[task_id][0]}"
+                ) 
+
+                # LOG.info("Clearning chat and resending instructions due to JSON error")
+                # await self.clear_chat(task_id)
             except Exception as e:
                 # Handle other exceptions
                 LOG.error(f"execute_step error: {e}")
-                LOG.info(f"chat_response: {chat_response}")
-                step.status = "completed"
-                step.is_last = False
 
-                self.add_chat(
-                    task_id,
-                    "system",
-                    f"Something went wrong with processing on our end. Please reformat your reply and try again.\n{e}")
+                # LOG.info("Clearning chat and resending instructions due to error")
+                # await self.clear_chat(task_id)
 
         # dump whole chat log at last step
         if step.is_last and task_id in self.chat_history:
-            LOG.info(f"{pprint.pformat(self.chat_history[task_id])}")
+            LOG.info(f"{pprint.pformat(self.chat_history, indext=4, width=100)}")
 
         # Return the completed step
         return step

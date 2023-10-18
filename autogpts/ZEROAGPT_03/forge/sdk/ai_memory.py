@@ -51,6 +51,8 @@ class AIMemory:
             )
 
             if len(memory_resp["documents"][0]) > 0:
+                logger.info(
+                    f"Relevant docs found: {len(memory_resp['documents'][0])}")
                 self.relevant_doc = memory_resp["documents"][0][0]
         except Exception as err:
             logger.error(f"get_doc failed: {err}")
@@ -62,7 +64,7 @@ class AIMemory:
         """
         if self.relevant_doc:
             self.prompt = f"""
-            You are 'The Librarian' a bot that answers questions using text from the reference document included below.
+            You are 'The Librarian' a bot that answers questions using text from the reference document included below. Please give short and concise answers as you are talking with another bot that is limited in space. Try removing any uncessary spacing and wording. For lists, give them in one line. 
             If the passage is irrelevant to the answer, you may ignore it.
             DOCUMENT: '{self.relevant_doc}'
             """

@@ -60,19 +60,19 @@ class AIPlanning:
                 "content": "You are an professional Project Manager."
             },
             {
-                "role": "system", 
+                "role": "user", 
                 "content": step_prompt
             }
         ]
 
-        self.logger.info(f"🤔 AIPlanner\n")
-        for chat in chat_list:
-            self.logger.info(f"role: {chat['role']}\ncontent: {chat['content']}")
+        # self.logger.info(f"🤔 AIPlanner\n")
+        # for chat in chat_list:
+            # self.logger.info(f"role: {chat['role']}\ncontent: {chat['content']}")
 
         chat_completion_parms = {
             "messages": chat_list,
             "model": self.model,
-            "temperature": 0.5
+            "temperature": 0.7
         }
         
         response = await chat_completion_request(
