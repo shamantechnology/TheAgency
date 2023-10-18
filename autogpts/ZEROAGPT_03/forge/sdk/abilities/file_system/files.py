@@ -213,8 +213,8 @@ async def search_in_file(agent, task_id: str, file_name: str, regex: str) -> Lis
 #     return agent.workspace.get_cwd_path(task_id)
 
 @ability(
-    name="file_content_length",
-    description="Get the line length of the file",
+    name="file_line_count",
+    description="Returns the line count of a file. Useful to find the size of a file.",
     parameters=[
         {
             "name": "file_name",
@@ -223,15 +223,15 @@ async def search_in_file(agent, task_id: str, file_name: str, regex: str) -> Lis
             "required": True,
         }
     ],
-    output_type="str"
+    output_type="int"
 )
-async def file_content_length(agent, task_id, file_name) -> str:
-    content_length = 0
+async def file_line_count(agent, task_id: str, file_name: str) -> int:
+    line_count = 0
     try:
         open_file = agent.workspace.readlines(task_id=task_id, path=file_name)
-        content_length = len(open_file)
+        line_count = len(open_file)
     except Exception as err:
-        logger.error(f"file_content_length failed: {err}")
+        logger.error(f"file_line_count failed: {err}")
         raise err
     
-    return f"Content Length of {file_name} is {content_length} lines"
+    return line_count

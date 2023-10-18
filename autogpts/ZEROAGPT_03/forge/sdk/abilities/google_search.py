@@ -32,44 +32,33 @@ async def google_search(agent, task_id: str, query: str) -> str:
     Return list of snippets from google search
     """
 
-    resp_message = "No results found"
+    result =  "No results found"
 
     try:
         service = googleapiclient.discovery.build(
             "customsearch",
             "v1",
             developerKey=os.getenv("GOOGLE_API_KEY"))
-        
-        
+                
         response = service.cse().list(
             q=query,
             cx=os.getenv("GOOGLE_CSE_ID")
         ).execute()
 
-        results = response["items"]
+        resp_list = []
+        for result in response["items"][:4]:
+            resp_list.append({
+                "url": result["formattedUrl"],
+                "snippet": result["snippet"]
+            })
 
-        # adding safe message code from latest forge sdk
         try:
-            mem_message = json.dumps(
-                [result.encode("utf-8", "ignore").decode("utf-8") for result in results]
-            )
-        except Exception as err:
-            logger.error("error making safe_message json, using dict and str instead: {err}")
-
-            resp_list = []
-            for result in response["items"]:
-                resp_list.append({
-                    "url": result["formattedUrl"],
-                    "snippet": result["snippet"]
-                })
-
-            mem_message = str(resp_list)
-
-        add_ability_memory(task_id, mem_message, "google_search")
-
-        resp_message = f"{len(response['items'])} Results from query '{query}' stored in memory"
+            result = json.dumps(resp_list)
+        except json.JSONDecodeError as err:
+            logger.error(f"json of result failed: {err}\n doing string")
+            result = str(resp_list)
     except Exception as err:
         logger.error(f"google_search failed: {err}")
         raise err
 
-    return resp_message
+    return result
