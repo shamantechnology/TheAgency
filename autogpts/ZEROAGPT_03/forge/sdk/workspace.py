@@ -21,10 +21,6 @@ class Workspace(abc.ABC):
     def write(self, task_id: str, path: str, data: bytes) -> None:
         pass
 
-    # @abc.abstractclassmethod
-    # def write_str(self, task_id: str, path: str, data: str) -> None:
-    #     pass
-
     @abc.abstractclassmethod
     def delete(
         self, task_id: str, path: str, directory: bool = False, recursive: bool = False
@@ -39,12 +35,21 @@ class Workspace(abc.ABC):
     def list(self, task_id: str, path: str) -> typing.List[str]:
         pass
 
+    @abc.abstractclassmethod
+    def get_cwd_path(self, task_id: str) -> str:
+        pass
+
+    @abc.abstractclassmethod
+    def get_temp_path(self) -> str:
+        pass
+
 
 class LocalWorkspace(Workspace):
     def __init__(self, base_path: str):
         self.base_path = Path(base_path).resolve()
 
     def _resolve_path(self, task_id: str, path: str) -> Path:
+        path = str(path)
         path = path if not path.startswith("/") else path[1:]
         abs_path = (self.base_path / task_id / path).resolve()
         if not str(abs_path).startswith(str(self.base_path)):
@@ -68,11 +73,6 @@ class LocalWorkspace(Workspace):
         file_path = self._resolve_path(task_id, path)
         with open(file_path, "wb") as f:
             f.write(data)
-
-    # def write_str(self, task_id: str, path: str, data: str) -> None:
-    #     file_path = self._resolve_path(task_id, path)
-    #     with open(file_path, 'w') as f:
-    #         f.write(data)
 
     def delete(
         self, task_id: str, path: str, directory: bool = False, recursive: bool = False
@@ -113,6 +113,6 @@ class LocalWorkspace(Workspace):
         path_obj = (self.base_path / task_id).resolve()
         return path_obj.as_posix()
     
-    def get_temp_path(self, task_id: str) -> str:
+    def get_temp_path(self) -> str:
         path_obj = (self.base_path.parent / "temp_folder")
         return path_obj.as_posix()
