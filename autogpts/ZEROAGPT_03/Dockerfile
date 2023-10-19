@@ -27,7 +27,6 @@ RUN pip3 install poetry
 # FIXME to make this parameterized
 COPY autogpts/ZEROAGPT_03/pyproject.toml  /app/
 COPY autogpts/ZEROAGPT_03/poetry.lock     /app/
-COPY pyproject.toml poetry.lock* /app/
 
 # Project initialization:
 RUN poetry install --no-interaction --no-ansi
@@ -35,7 +34,8 @@ RUN poetry install --no-interaction --no-ansi
 ENV PYTHONPATH="/app:$PYTHONPATH"
 
 # Copy project
-COPY . /app
+#COPY . /app
+ADD ./autogpts/ZEROAGPT_03/ /app/
 
 RUN mkdir /tmp/workspace/
 
@@ -43,4 +43,4 @@ RUN mkdir /tmp/workspace/
 EXPOSE 8000
 
 # Run the application when the container launches
-CMD ["poetry", "run", "python", "autogpt/__main__.py"]
+#CMD ["poetry", "run", "python", "autogpt/__main__.py"]
