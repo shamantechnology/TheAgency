@@ -7,6 +7,9 @@ import os
 import json
 import time
 from itertools import islice
+import requests
+from bs4 import BeautifulSoup
+import lxml
 
 from duckduckgo_search import DDGS
 
@@ -62,3 +65,71 @@ async def web_search(agent, task_id: str, query: str) -> str:
     except Exception as err:
         logger.error(f"google_search failed: {err}")
         raise err
+
+@ability(
+    name="web_search2",
+    description="Search the internet using Google",
+    parameters=[
+        {
+            "name": "query",
+            "description": "detailed search query",
+            "type": "string",
+            "required": True,
+        }
+    ],
+    output_type="str",
+)
+async def web_search2(agent, task_id: str, query: str) -> str:
+    params = {
+        "q": query,
+        "hl": "en",
+        "gl": "us",
+        "start": 0
+    }
+
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36"
+    }
+
+    page_limit = 10
+    page_num = 0
+
+    data = []
+
+    while True:
+        page_num += 1
+            
+        html = requests.get(
+            "https://www.google.com/search",
+            params=params,
+            headers=headers,
+            timeout=30
+        )
+
+        soup = BeautifulSoup(html.text, 'lxml')
+        
+        for result in soup.select(".tF2Cxc"):
+            title = result.select_one(".DKV0Md").text
+            try:
+                snippet = result.select_one(".lEBKkf span").text
+            except:
+                snippet = None
+            
+            links = result.select_one(".yuRUbf a")["href"]
+        
+            data.append({
+                "title": title,
+                "snippet": snippet,
+                "links": links
+            })
+
+        if page_num == page_limit:
+            break
+        if soup.select_one(".d6cvqb a[id=pnnext]"):
+            params["start"] += 10
+        else:
+            break
+    
+    resp_json = json.dumps(data, ensure_ascii=False)
+    
+    return resp_json
