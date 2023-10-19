@@ -40,7 +40,7 @@ ADD ./autogpts/ZEROAGPT_03/ /app/
 RUN mkdir /tmp/workspace/
 
 # Make port 80 available to the world outside this container
-EXPOSE 8000
+#EXPOSE 8000
 
 # Run the application when the container launches
 #CMD ["poetry", "run", "python", "autogpt/__main__.py"]
