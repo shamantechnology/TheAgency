@@ -5,18 +5,21 @@ from typing import List
 
 import os
 import json
-import googleapiclient.discovery
+import time
+from itertools import islice
 
-from forge.sdk.memory.memstore_tools import add_ability_memory
+from duckduckgo_search import DDGS
 
 from ..forge_log import ForgeLogger
 from .registry import ability
 
+DUCKDUCKGO_MAX_ATTEMPTS = 3
+
 logger = ForgeLogger(__name__)
 
 @ability(
-    name="google_search",
-    description="Search the internet using Google",
+    name="web_search",
+    description="Search the internet using DuckDuckGo",
     parameters=[
         {
             "name": "query",
@@ -27,38 +30,35 @@ logger = ForgeLogger(__name__)
     ],
     output_type="str",
 )
-async def google_search(agent, task_id: str, query: str) -> str:
-    """
-    Return list of snippets from google search
-    """
-
-    result =  "No results found"
-
+async def web_search(agent, task_id: str, query: str) -> str:
     try:
-        service = googleapiclient.discovery.build(
-            "customsearch",
-            "v1",
-            developerKey=os.getenv("GOOGLE_API_KEY"))
-                
-        response = service.cse().list(
-            q=query,
-            cx=os.getenv("GOOGLE_CSE_ID")
-        ).execute()
+        search_results = []
+        attempts = 0
+        num_results = 8
 
-        resp_list = []
-        for result in response["items"][:4]:
-            resp_list.append({
-                "url": result["formattedUrl"],
-                "snippet": result["snippet"]
-            })
+        while attempts < DUCKDUCKGO_MAX_ATTEMPTS:
+            if not query:
+                return json.dumps(search_results)
 
-        try:
-            result = json.dumps(resp_list)
-        except json.JSONDecodeError as err:
-            logger.error(f"json of result failed: {err}\n doing string")
-            result = str(resp_list)
+            results = DDGS().text(query)
+            search_results = list(islice(results, num_results))
+
+            if search_results:
+                break
+
+            time.sleep(1)
+            attempts += 1
+
+        results = json.dumps(search_results, ensure_ascii=False, indent=4)
+        
+        if isinstance(results, list):
+            safe_message = json.dumps(
+                [result.encode("utf-8", "ignore").decode("utf-8") for result in results]
+            )
+        else:
+            safe_message = results.encode("utf-8", "ignore").decode("utf-8")
+
+        return safe_message
     except Exception as err:
         logger.error(f"google_search failed: {err}")
         raise err
-
-    return result

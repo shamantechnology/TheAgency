@@ -15,7 +15,6 @@ sqlalchemy = "^2.0.19"
 aiohttp = "^3.8.5"
 colorlog = "^6.7.0"
 chromadb = "^0.4.10"
-agbenchmark = { path = "../../benchmark" }
 hypercorn = "^0.14.4"
 python-multipart = "^0.0.6"
 toml = "^0.10.2"
@@ -24,6 +23,7 @@ bs4 = "^0.0.1"
 google-api-python-client = "^2.101.0"
 yfinance = "^0.2.30"
 pyautogen = "^0.1.10"
+duckduckgo-search = "^3.9.3"
 
 [tool.poetry.group.dev.dependencies]
 isort = "^5.12.0"
