@@ -63,7 +63,7 @@ tiktoken = "^0.5.0"
 webdriver-manager = "*"
 
 # OpenAI and Generic plugins import
-openapi-python-client = "^0.14.0"
+openapi-python-client = "*"
 
 # Benchmarking
 agbenchmark = { path = "../../benchmark", optional = true }
