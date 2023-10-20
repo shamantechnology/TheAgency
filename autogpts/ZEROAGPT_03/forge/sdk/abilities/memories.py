@@ -326,7 +326,7 @@ async def mem_file_qna(agent, task_id: str, file_name: str, query: str):
     description="Ask a question about chat history per role stored in memory",
     parameters=[
         {
-            "name": "role",
+            "name": "chat_role",
             "description": "chat role - either 'user', 'system' or 'assistant'",
             "type": "string",
             "required": True,
