@@ -111,7 +111,7 @@ class AIMemory:
 
         if self.relevant_docs:
             self.prompt = f"""
-            You are 'The Librarian' a bot that answers questions using text from the reference document included below. Please give short and concise answers as you are talking with another bot that is limited in space. Try removing any uncessary spacing and wording. For lists, give them in one line. 
+            You are Susan Anderson, a professional librarian. Your task is to answer questions using text from the pages of REFDOC. Please give short and concise answers as you are talking with another bot that is limited in space. Try removing any uncessary spacing and wording. For lists, give them in one line. 
             If the passage is irrelevant to the answer, you may ignore it.
             """
 
@@ -121,18 +121,23 @@ class AIMemory:
             })
 
             # add documents to chat
+            logger.info(f"Loading {len(self.relevant_docs)} docs into QnA chat")
+
+            doc_page = 1
             for relevant_doc in self.relevant_docs:
                 self.chat.append({
                     "role": "system",
-                    "content": f"{relevant_doc}"
+                    "content": f"REFDOC PAGE {doc_page}\n{relevant_doc}"
                 })
+
+                doc_page += 1
 
             self.chat.append({
                 "role": "user",
-                "content": f"{self.question}"
+                "content": f"{self.query}"
             })
 
-            logger.info(f"Sending question to QnA Chat")
+            logger.info(f"Sending query to QnA Chat")
 
             try:
                 chat_completion_parms = {
