@@ -311,9 +311,7 @@ async def mem_file_qna(agent, task_id: str, file_name: str, query: str):
             model="gpt-3.5-turbo-16k"
         )
 
-        aimem.get_doc()
-
-        if aimem.relevant_doc:
+        if aimem.get_doc():
             mem_doc = await aimem.query_doc_ai()
     except Exception as err:
         logger.error(f"mem_file_qna failed: {err}")
@@ -379,7 +377,7 @@ async def mem_chat_qna(agent, task_id: str, chat_role: str, query: str):
     ],
     output_type="str",
 )
-async def mem_file_qna(agent, task_id: str, url: str, query: str):
+async def mem_website_qna(agent, task_id: str, url: str, query: str):
     mem_doc = "No documents found"
     try:
         aimem = AIMemory(
@@ -394,7 +392,7 @@ async def mem_file_qna(agent, task_id: str, url: str, query: str):
         if aimem.get_doc():
             mem_doc = await aimem.query_doc_ai()
     except Exception as err:
-        logger.error(f"mem_qna failed: {err}")
+        logger.error(f"mem_website_qna failed: {err}")
         raise err
     
     return mem_doc
@@ -412,7 +410,7 @@ async def mem_file_qna(agent, task_id: str, url: str, query: str):
     ],
     output_type="str",
 )
-async def mem_file_qna(agent, task_id: str, query: str):
+async def mem_all_qna(agent, task_id: str, query: str):
     mem_doc = "No documents found"
     try:
         aimem = AIMemory(
@@ -426,7 +424,7 @@ async def mem_file_qna(agent, task_id: str, query: str):
         if aimem.get_doc():
             mem_doc = await aimem.query_doc_ai()
     except Exception as err:
-        logger.error(f"mem_qna failed: {err}")
+        logger.error(f"mem_all_qna failed: {err}")
         raise err
     
     return mem_doc
