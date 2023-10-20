@@ -95,9 +95,14 @@ class AIMemory:
                 # need to add in chucking up of large docs
                 for i in range(len(memory_resp['documents'][0])):
                     self.relevant_docs.append(memory_resp["documents"][0][i])
+            else:
+                logger.info("No relevant docs found")
+                return False
         except Exception as err:
             logger.error(f"get_doc failed: {err}")
             raise err
+
+        return True
     
     async def query_doc_ai(self) -> str:
         """

@@ -352,9 +352,7 @@ async def mem_chat_qna(agent, task_id: str, chat_role: str, query: str):
             model="gpt-3.5-turbo-16k"
         )
 
-        aimem.get_doc()
-
-        if aimem.relevant_doc:
+        if aimem.get_doc():
             mem_doc = await aimem.query_doc_ai()
     except Exception as err:
         logger.error(f"mem_chat_qna failed: {err}")
@@ -393,9 +391,7 @@ async def mem_file_qna(agent, task_id: str, url: str, query: str):
             model="gpt-3.5-turbo-16k"
         )
 
-        aimem.get_doc()
-
-        if aimem.relevant_doc:
+        if aimem.get_doc():
             mem_doc = await aimem.query_doc_ai()
     except Exception as err:
         logger.error(f"mem_qna failed: {err}")
@@ -427,9 +423,7 @@ async def mem_file_qna(agent, task_id: str, query: str):
             model="gpt-3.5-turbo-16k"
         )
 
-        aimem.get_doc()
-
-        if aimem.relevant_doc:
+        if aimem.get_doc():
             mem_doc = await aimem.query_doc_ai()
     except Exception as err:
         logger.error(f"mem_qna failed: {err}")
