@@ -13,7 +13,10 @@ from ..ai_memory import AIMemory
 
 import requests
 from bs4 import BeautifulSoup
-from forge.sdk.memory.memstore_tools import add_website_memory
+from forge.sdk.memory.memstore_tools import (
+    add_website_memory,
+    add_file_memory
+)
 
 logger = ForgeLogger(__name__)
 
@@ -37,17 +40,13 @@ MAX_OUT_SIZE = 150
 async def add_file_to_memory(agent, task_id: str, file_name: str) -> str:
     logger.info(f"🧠 Adding {file_name} to memory for task {task_id}")
     try:
-        cwd = agent.workspace.get_cwd_path(task_id)
-        chroma_dir = f"{cwd}/chromadb/"
-
         open_file = agent.workspace.read(task_id=task_id, path=file_name)
         open_file_str = open_file.decode()
 
-        memory = ChromaMemStore(chroma_dir)
-        memory.add(
-            task_id=task_id,
-            document=open_file_str,
-            metadatas={"filename": file_name}
+        add_file_memory(
+            task_id,
+            file_name,
+            open_file_str
         )
     except Exception as err:
         logger.error(f"add_file_memory failed: {err}")
@@ -127,41 +126,41 @@ async def read_file_from_memory(agent, task_id: str, file_name: str) -> str:
         memory_resp = memory.query(
             task_id=task_id,
             query="",
-            filters={"filename": file_name}
+            filters={
+                "filename": file_name
+            }
         )
 
         # get the most relevant document and shrink to 50
         if len(memory_resp["documents"][0]) > 0:
             mem_doc = memory_resp["documents"][0][0]
             if(len(mem_doc) > MAX_OUT_SIZE):
-                mem_doc = "This document is too long, use the ability 'mem_qna' to access it."
+                mem_doc = "This document is too long, use the ability 'mem_file_qna' to access it."
             else:
                 mem_doc = memory_resp["documents"][0][0][:MAX_OUT_SIZE]
         else:
             # tell ai to use 'add_file_memory'
             mem_doc = "File not found in memory. Add the file with ability 'add_file_memory'"
     except Exception as err:
-        logger.error(f"mem_search failed: {err}")
+        logger.error(f"read_file_from_memory failed: {err}")
         raise err
     
     return mem_doc
 
 @ability(
-    name="mem_search",
-    description="query your memory for relevant stored documents",
+    name="website_from_memory",
+    description="Search for a website in memory",
     parameters=[
         {
-            "name": "query",
-            "description": "search query",
+            "name": "url",
+            "description": "URL of website",
             "type": "string",
             "required": True,
         }
     ],
     output_type="str",
 )
-async def mem_search(agent, task_id: str, query: str) -> str:
-    mem_doc = "No documents found"
-
+async def website_from_memory(agent, task_id: str, url: str) -> str:
     try:
         # find doc in chromadb
         cwd = agent.workspace.get_cwd_path(task_id)
@@ -170,58 +169,262 @@ async def mem_search(agent, task_id: str, query: str) -> str:
         memory = ChromaMemStore(chroma_dir)
         memory_resp = memory.query(
             task_id=task_id,
-            query=query
+            query="",
+            filters={
+                "url": url
+            }
         )
 
-        # get the most relevant document and shrink
-        mem_doc = memory_resp["documents"][0][0]
-        if(len(mem_doc) > 187):
-            mem_doc = "This document is too long, use the ability 'mem_qna' to access it."
+        # get the most relevant document and shrink to 50
+        if len(memory_resp["documents"][0]) > 0:
+            mem_doc = memory_resp["documents"][0][0]
+            if(len(mem_doc) > MAX_OUT_SIZE):
+                mem_doc = "This document is too long, use the ability 'mem_website_qna' to access it."
+            else:
+                mem_doc = memory_resp["documents"][0][0][:MAX_OUT_SIZE]
         else:
-            mem_doc = memory_resp["documents"][0][0][:187]
+            # tell ai to use 'add_file_memory'
+            mem_doc = "File not found in memory. Add the file with ability 'add_file_memory'"
     except Exception as err:
-        logger.error(f"mem_search failed: {err}")
+        logger.error(f"website_from_memory failed: {err}")
         raise err
     
     return mem_doc
 
-@ability(
-    name="mem_qna",
-    description="Ask a question about an old stored memory",
+ability(
+    name="chat_from_memory",
+    description="Search for chat history",
     parameters=[
         {
-            "name": "memory_name",
-            "description": "name or keyword for memory",
+            "name": "query",
+            "description": "Question used for chat search",
             "type": "string",
             "required": True,
         },
         {
-            "name": "memory_question",
-            "description": "question about memory",
+            "name": "role",
+            "description": "Role you are searching for in chat history",
             "type": "string",
             "required": True,
         }
     ],
     output_type="str",
 )
-async def mem_qna(agent, task_id: str, memory_name: str, memory_question: str):
-    mem_doc = "No documents found"
+async def chat_from_memory(agent, task_id: str, query: str, role: str) -> str:
     try:
-        aimem = AIMemory(
-            agent.workspace,
-            task_id,
-            memory_name,
-            memory_question,
-            "gpt-3.5-turbo-16k"
+        # find doc in chromadb
+        cwd = agent.workspace.get_cwd_path(task_id)
+        chroma_dir = f"{cwd}/chromadb/"
+
+        memory = ChromaMemStore(chroma_dir)
+        memory_resp = memory.query(
+            task_id=task_id,
+            query=query,
+            filters={
+                "role": role
+            }
         )
 
-        aimem.get_doc()
-
-        if aimem.relevant_doc:
-            mem_doc = await aimem.query_doc_ai()
+        # get the most relevant document and shrink to 50
+        if len(memory_resp["documents"][0]) > 0:
+            mem_doc = memory_resp["documents"][0][0]
+            if(len(mem_doc) > MAX_OUT_SIZE):
+                mem_doc = "This document is too long, use the ability 'mem_chat_qna' to access it."
+            else:
+                mem_doc = memory_resp["documents"][0][0][:MAX_OUT_SIZE]
+        else:
+            # tell ai to use 'add_file_memory'
+            mem_doc = "File not found in memory. Add the file with ability 'add_file_memory'"
     except Exception as err:
-        logger.error(f"mem_qna failed: {err}")
+        logger.error(f"chat_from_memory failed: {err}")
         raise err
     
     return mem_doc
 
+# @ability(
+#     name="mem_search",
+#     description="query your memory for relevant stored documents",
+#     parameters=[
+#         {
+#             "name": "query",
+#             "description": "search query",
+#             "type": "string",
+#             "required": True,
+#         }
+#     ],
+#     output_type="str",
+# )
+# async def mem_search(agent, task_id: str, query: str) -> str:
+#     mem_doc = "No documents found"
+
+#     try:
+#         # find doc in chromadb
+#         cwd = agent.workspace.get_cwd_path(task_id)
+#         chroma_dir = f"{cwd}/chromadb/"
+
+#         memory = ChromaMemStore(chroma_dir)
+#         memory_resp = memory.query(
+#             task_id=task_id,
+#             query=query
+#         )
+
+#         # get the most relevant document and shrink
+#         mem_doc = memory_resp["documents"][0][0]
+#         if(len(mem_doc) > 187):
+#             mem_doc = "This document is too long, use the ability 'mem_qna' to access it."
+#         else:
+#             mem_doc = memory_resp["documents"][0][0][:187]
+#     except Exception as err:
+#         logger.error(f"mem_search failed: {err}")
+#         raise err
+    
+#     return mem_doc
+
+@ability(
+    name="mem_file_qna",
+    description="Ask a question about a file stored in memory",
+    parameters=[
+        {
+            "name": "file_name",
+            "description": "name of file",
+            "type": "string",
+            "required": True,
+        },
+        {
+            "name": "query",
+            "description": "question about file",
+            "type": "string",
+            "required": True,
+        }
+    ],
+    output_type="str",
+)
+async def mem_file_qna(agent, task_id: str, file_name: str, query: str):
+    mem_doc = "No documents found"
+    try:
+        aimem = AIMemory(
+            workspace=agent.workspace,
+            task_id=task_id,
+            query=query,
+            file_name=file_name,
+            doc_type="file",
+            model="gpt-3.5-turbo-16k"
+        )
+
+        if aimem.get_doc():
+            mem_doc = await aimem.query_doc_ai()
+    except Exception as err:
+        logger.error(f"mem_file_qna failed: {err}")
+        raise err
+    
+    return mem_doc
+
+@ability(
+    name="mem_chat_qna",
+    description="Ask a question about chat history per role stored in memory",
+    parameters=[
+        {
+            "name": "chat_role",
+            "description": "chat role - either 'user', 'system' or 'assistant'",
+            "type": "string",
+            "required": True,
+        },
+        {
+            "name": "query",
+            "description": "question about conversation",
+            "type": "string",
+            "required": True,
+        }
+    ],
+    output_type="str",
+)
+async def mem_chat_qna(agent, task_id: str, chat_role: str, query: str):
+    mem_doc = "No documents found"
+    try:
+        aimem = AIMemory(
+            workspace=agent.workspace,
+            task_id=task_id,
+            query=query,
+            chat_role=chat_role,
+            doc_type="chat",
+            model="gpt-3.5-turbo-16k"
+        )
+
+        if aimem.get_doc():
+            mem_doc = await aimem.query_doc_ai()
+    except Exception as err:
+        logger.error(f"mem_chat_qna failed: {err}")
+        raise err
+    
+    return mem_doc
+
+@ability(
+    name="mem_website_qna",
+    description="Ask a question about a website stored in memory",
+    parameters=[
+        {
+            "name": "url",
+            "description": "url of website",
+            "type": "string",
+            "required": True,
+        },
+        {
+            "name": "query",
+            "description": "question about website",
+            "type": "string",
+            "required": True,
+        }
+    ],
+    output_type="str",
+)
+async def mem_website_qna(agent, task_id: str, url: str, query: str):
+    mem_doc = "No documents found"
+    try:
+        aimem = AIMemory(
+            workspace=agent.workspace,
+            task_id=task_id,
+            query=query,
+            url=url,
+            doc_type="website",
+            model="gpt-3.5-turbo-16k"
+        )
+
+        if aimem.get_doc():
+            mem_doc = await aimem.query_doc_ai()
+    except Exception as err:
+        logger.error(f"mem_website_qna failed: {err}")
+        raise err
+    
+    return mem_doc
+
+@ability(
+    name="mem_all_qna",
+    description="Ask a question about everything in memory",
+    parameters=[
+        {
+            "name": "query",
+            "description": "question about website",
+            "type": "string",
+            "required": True,
+        }
+    ],
+    output_type="str",
+)
+async def mem_all_qna(agent, task_id: str, query: str):
+    mem_doc = "No documents found"
+    try:
+        aimem = AIMemory(
+            workspace=agent.workspace,
+            task_id=task_id,
+            query=query,
+            doc_type="all",
+            model="gpt-3.5-turbo-16k"
+        )
+
+        if aimem.get_doc():
+            mem_doc = await aimem.query_doc_ai()
+    except Exception as err:
+        logger.error(f"mem_all_qna failed: {err}")
+        raise err
+    
+    return mem_doc

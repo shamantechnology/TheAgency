@@ -22,17 +22,28 @@ class AIMemory:
         workspace: Workspace,
         task_id: str,
         query: str,
-        question: str = None,
+        doc_type: str,
+        file_name: str = None,
+        chat_role: str = None,
+        url: str = None,
         model: str = os.getenv("OPENAI_MODEL")):
 
         self.workspace = workspace
         self.task_id = task_id
         self.query = query
         self.model = model
-        self.question = question if question else query
+        self.file_name = file_name
+        self.chat_role = chat_role
+        self.url = url
+
+        if doc_type not in ["file", "chat", "website", "all"]:
+            logger.error(f"{doc_type} not found in allowed types. Defaulting to 'file' type")
+            self.doc_type = "file"
+        else:
+            self.doc_type = doc_type
 
         self.chat = []
-        self.relevant_doc = None
+        self.relevant_docs = []
         self.prompt = None
 
     def get_doc(self) -> None:
@@ -40,33 +51,68 @@ class AIMemory:
         Get document from VecStor
         """
         try:
+
             # find doc in chromadb
             cwd = self.workspace.get_cwd_path(self.task_id)
             chroma_dir = f"{cwd}/chromadb/"
 
             memory = ChromaMemStore(chroma_dir)
-            memory_resp = memory.query(
-                task_id=self.task_id,
-                query=self.query
-            )
+
+            if self.doc_type == "file":
+                memory_resp = memory.query(
+                    task_id=self.task_id,
+                    query=self.query,
+                    filters={
+                        "filename": self.file_name
+                    }
+                )
+            elif self.doc_type == "chat":
+                 memory_resp = memory.query(
+                    task_id=self.task_id,
+                    query=self.query,
+                    filters={
+                        "role": self.chat_role
+                    }
+                )
+            elif self.doc_type == "website":
+                 memory_resp = memory.query(
+                    task_id=self.task_id,
+                    query=self.query,
+                    filters={
+                        "url": self.url
+                    }
+                )
+            elif self.doc_type == "all":
+                memory_resp = memory.query(
+                    task_id=self.task_id,
+                    query=self.query
+                )
 
             if len(memory_resp["documents"][0]) > 0:
                 logger.info(
-                    f"Relevant docs found: {len(memory_resp['documents'][0])}")
-                self.relevant_doc = memory_resp["documents"][0][0]
+                    f"Relevant docs found! Doc count: {len(memory_resp['documents'][0])}")
+                
+                # need to add in chucking up of large docs
+                for i in range(len(memory_resp['documents'][0])):
+                    self.relevant_docs.append(memory_resp["documents"][0][i])
+            else:
+                logger.info("No relevant docs found")
+                return False
         except Exception as err:
             logger.error(f"get_doc failed: {err}")
             raise err
+
+        return True
     
     async def query_doc_ai(self) -> str:
         """
         Uses doc found from VecStor and creates a QnA agent
         """
-        if self.relevant_doc:
+
+        if self.relevant_docs:
             self.prompt = f"""
-            You are 'The Librarian' a bot that answers questions using text from the reference document included below. Please give short and concise answers as you are talking with another bot that is limited in space. Try removing any uncessary spacing and wording. For lists, give them in one line. 
+            You are Susan Anderson, a professional librarian. Your task is to answer questions using text from the pages of REFDOC. Please give short and concise answers as you are talking with another bot that is limited in space. Try removing any uncessary spacing and wording. For lists, give them in one line. 
             If the passage is irrelevant to the answer, you may ignore it.
-            DOCUMENT: '{self.relevant_doc}'
             """
 
             self.chat.append({
@@ -74,12 +120,24 @@ class AIMemory:
                 "content": self.prompt
             })
 
+            # add documents to chat
+            logger.info(f"Loading {len(self.relevant_docs)} docs into QnA chat")
+
+            doc_page = 1
+            for relevant_doc in self.relevant_docs:
+                self.chat.append({
+                    "role": "system",
+                    "content": f"REFDOC PAGE {doc_page}\n{relevant_doc}"
+                })
+
+                doc_page += 1
+
             self.chat.append({
                 "role": "user",
-                "content": f"{self.question}"
+                "content": f"{self.query}"
             })
 
-            logger.info(f"Sending Doc QnA Chat\n{self.chat}")
+            logger.info(f"Sending query to QnA Chat")
 
             try:
                 chat_completion_parms = {
@@ -100,7 +158,7 @@ class AIMemory:
                 logger.error(f"chat completion failed: {err}")
                 return "chat completion failed, document might be too large"
         else:
-            logger.error("no relevant_doc found")
+            logger.error("no relevant_docs found")
             return "no relevant document found"
 
 
