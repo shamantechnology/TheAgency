@@ -7,8 +7,8 @@ from .db import AgentDB
 from .forge_log import ForgeLogger
 from .llm import (
     chat_completion_request, 
-    create_chat_embedding_request, 
-    create_text_embedding_request,
+    create_embedding_request, 
+    create_doc_embedding_request,
     transcribe_audio
 )
 

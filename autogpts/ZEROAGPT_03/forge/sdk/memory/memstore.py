@@ -4,11 +4,6 @@ import hashlib
 import chromadb
 from chromadb.config import Settings
 
-from ..llm import (
-    create_text_embedding_request,
-    create_chat_embedding_request
-)
-
 
 class MemStore(abc.ABC):
     """

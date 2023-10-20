@@ -20,10 +20,14 @@ python-multipart = "^0.0.6"
 toml = "^0.10.2"
 jinja2 = "^3.1.2"
 bs4 = "^0.0.1"
-google-api-python-client = "^2.101.0"
 yfinance = "^0.2.30"
 pyautogen = "^0.1.10"
-duckduckgo-search = "^3.9.3"
+agbenchmark = { path = "../../benchmark" }
+duckduckgo-search = "^3.8.0"
+litellm = "^0.10.1"
+
+[tool.poetry.extras]
+benchmark = ["agbenchmark"]
 
 [tool.poetry.group.dev.dependencies]
 isort = "^5.12.0"

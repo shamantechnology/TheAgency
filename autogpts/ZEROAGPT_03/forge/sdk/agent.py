@@ -34,7 +34,8 @@ class Agent:
         Start the agent server.
         """
         config = Config()
-        config.bind = [f"0.0.0.0:{port}"]
+        app_host = os.getenv("AGENT_SERVER_HOST")
+        config.bind = [f"{app_host}:{port}"]
         app = FastAPI(
             title="AutoGPT Forge",
             description="Modified version of The Agent Protocol.",
@@ -80,9 +81,9 @@ class Agent:
         app.add_middleware(AgentMiddleware, agent=self)
 
         config.loglevel = "ERROR"
-        config.bind = [f"0.0.0.0:{port}"]
+        config.bind = [f"{app_host}:{port}"]
 
-        LOG.info(f"Agent server starting on http://0.0.0.0:{port}")
+        LOG.info(f"Agent server starting on http://{app_host}:{port}")
         asyncio.run(serve(app, config))
 
     async def create_task(self, task_request: TaskRequestBody) -> Task:
