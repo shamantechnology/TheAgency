@@ -44,7 +44,7 @@ class AIPlanning:
         )
         
         step_prompt = self.prompt_engine.load_prompt(
-            "get-steps",
+            "get-steps3",
             **{
                 "task": self.task
             }

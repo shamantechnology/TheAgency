@@ -21,22 +21,32 @@ def get_sep(tfile_readlines):
     
     return delim
 
-# def load_csv(agent, task_id, file_name) -> Any:
-#     """
-#     Load CSV file in CWD
-#     """
-#     df = None
-
-#     try:
-#         file_readlines = agent.workspace.readlines(task_id=task_id, path=file_name)
-#         file_sep = get_sep(file_readlines)
-
-#         gcwd = agent.workspace.get_cwd_path(task_id)
-#         df = pandas.read_csv(f"{gcwd}/{file_name}", sep=file_sep)
-#     except Exception as err:
-#         logger.error(f"load_csv failed {err}")
+@ability(
+    name="csv_check",
+    description="Check if file is a CSV",
+    parameters=[
+        {
+            "name": "file_name",
+            "description": "Name of the file",
+            "type": "string",
+            "required": True
+        }
+    ],
+    output_type="bool"
+)
+async def csv_check(agent, task_id: str, file_name: str) -> bool:
+    """
+    Check if file is a CSV
+    """
+    gcwd = agent.workspace.get_cwd_path(task_id)
+    csv_fileh = open(f"{gcwd}/{file_name}", 'rb')
+    try:
+        csv.Sniffer().sniff(csv_fileh.read(1024))
+        csv_fileh.seek(0)
+    except csv.Error:
+        return False
     
-#     return df
+    return True
 
 @ability(
     name="csv_get_columns",
@@ -56,7 +66,7 @@ async def csv_get_columns(
     task_id: str,
     file_name: str
 ) -> List:
-    columns_list = []
+    columns_list = ['No columns found']
 
     try:
         file_readlines = agent.workspace.readlines(task_id=task_id, path=file_name)
@@ -97,7 +107,7 @@ async def csv_get_same_columns(
     file1: str,
     file2: str
 ) -> List:
-    matching_columns = [] 
+    matching_columns = ['No matching columns found'] 
     try:
         file_readlines1 = agent.workspace.readlines(task_id=task_id, path=file1)
         file_sep1 = get_sep(file_readlines1)
@@ -137,9 +147,8 @@ async def csv_get_amount_rows(
     agent,
     task_id: str,
     file_name: str) -> int:
+    row_amt = 0
     try:
-        row_amt = 0
-
         file_readlines = agent.workspace.readlines(task_id=task_id, path=file_name)
         file_sep = get_sep(file_readlines)
 
@@ -187,7 +196,7 @@ async def csv_get_column_value(
     column: str,
     row_idx: int = -1
 ) -> Any:
-    row_val = None
+    row_val = "No value found"
     
     try:
         file_readlines = agent.workspace.readlines(task_id=task_id, path=file_name)
@@ -239,7 +248,7 @@ async def csv_group_by_sum(
     column_1: str,
     column_2: str
 ) -> str:
-    cat_sum = ""
+    cat_sum = "No sum found"
     try:
         file_readlines = agent.workspace.readlines(task_id=task_id, path=file_name)
         file_sep = get_sep(file_readlines)
@@ -392,14 +401,14 @@ async def csv_merge(
             "required": True
         }
     ],
-    output_type="bool"
+    output_type="str"
 )
 async def csv_sort_by_column(
     agent, 
     task_id: str,
     input_file: str, 
     column: str,
-    output_file: str) -> bool:
+    output_file: str) -> str:
 
     try:
         gcwd = agent.workspace.get_cwd_path(task_id)
@@ -415,11 +424,13 @@ async def csv_sort_by_column(
 
         sorted_df = df.sort_values(by=column)
         sorted_df.to_csv(f"{gcwd}/{output_file}", index=False)
+
+        resp_msg = f"Sorted by column '{column}'"
     except Exception as err:
         logger.error(f"{err}")
-        raise err
+        resp_msg = f"Not sorted by column '{column}': {err}"
     
-    return True
+    return resp_msg
 
 @ability(
     name="csv_add_column_data",
@@ -465,7 +476,7 @@ async def csv_add_column_data(
     output_file: str, 
     column: str,
     value: Any,
-    row_index: int = -1) -> bool:
+    row_index: int = -1) -> str:
 
     try:
         gcwd = agent.workspace.get_cwd_path(task_id)
@@ -478,8 +489,7 @@ async def csv_add_column_data(
             f"{gcwd}/{input_file}", 
             sep=file_sep
         )
-
-        
+ 
         if row_index == -1:
             # handle if string
             if isinstance(value, str):
@@ -494,12 +504,16 @@ async def csv_add_column_data(
             elif isinstance(value, list):
                 for ridx in range(len(value)):
                     df.loc[ridx, column] = value[ridx]
+            
+            resp_msg = f"Added '{value}' to column '{column}' and saved to '{output_file}'"
         else:
             df.loc[row_index, column] = value
+            resp_msg = f"Added '{value}' to column '{column}' at row {row_index} and saved to '{output_file}'"
+        
         df.to_csv(f"{gcwd}/{output_file}", index=False)
     except Exception as err:
         logger.error(f"{err}")
-        raise err
+        resp_msg = f"Error adding '{value}' to column '{column}': {err}"
     
-    return True
+    return resp_msg
 

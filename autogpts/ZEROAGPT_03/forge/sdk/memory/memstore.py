@@ -167,7 +167,7 @@ class ChromaMemStore(MemStore):
             path=store_path, settings=Settings(anonymized_telemetry=False)
         )
 
-    def add(self, task_id: str, document: str, metadatas: dict) -> None:
+    def add(self, task_id: str, document: str, metadatas: dict) -> str:
         """
         Add a document to the MemStore.
 
@@ -183,6 +183,8 @@ class ChromaMemStore(MemStore):
             metadatas=[metadatas],
             ids=[doc_id]
         )
+
+        return doc_id
 
     def query(
         self,

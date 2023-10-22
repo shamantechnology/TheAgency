@@ -2,6 +2,7 @@ import json
 import pprint
 import os
 import shutil
+import time
 from datetime import datetime
 
 from pathlib import Path
@@ -17,7 +18,8 @@ from forge.sdk import (
     TaskRequestBody,
     PromptEngine,
     chat_completion_request,
-    ProfileGenerator
+    ProfileGenerator,
+    num_tokens_from_messages
 )
 
 from forge.sdk.memory.memstore import ChromaMemStore
@@ -35,6 +37,9 @@ class ForgeAgent(Agent):
         # initialize chat history
         self.chat_history = []
 
+        # abilities history
+        self.abilities_history = []
+
         # expert profile
         self.expert_profile = None
 
@@ -51,6 +56,9 @@ class ForgeAgent(Agent):
 
         # keep number of steps per task
         self.task_steps_amount = {}
+
+        # track amount of tokens to add a wait
+        self.total_token_amount = 0
 
     async def create_task(self, task_request: TaskRequestBody) -> Task:
         # set instruction amount to 0
@@ -79,6 +87,10 @@ class ForgeAgent(Agent):
             LOG.info(f"🧠 Created memorystore @ {os.getenv('AGENT_WORKSPACE')}/{task.task_id}/chroma")
         except Exception as err:
             LOG.error(f"memstore creation failed: {err}")
+
+        # clear chat and ability history
+        self.chat_history = []
+        self.abilities_history = []
         
         # get role for task
         # use AI to get the proper role experts for the task
@@ -112,7 +124,7 @@ class ForgeAgent(Agent):
         role: str, 
         content: str,
         is_function: bool = False,
-        function_name: str = None):
+        function_name: str = None) -> None:
         
         if is_function:
             chat_struct = {
@@ -150,7 +162,7 @@ class ForgeAgent(Agent):
         except KeyError:
             self.chat_history = [chat_struct]
 
-    async def set_instruction_messages(self, task_id: str):
+    async def set_instruction_messages(self, task_id: str) -> None:
         """
         Add the call to action and response formatting
         system and user messages
@@ -179,12 +191,7 @@ class ForgeAgent(Agent):
 
         task = await self.db.get_task(task_id)
 
-        # save and clear chat history
-        if len(self.chat_history) > 0:
-            for chat in self.chat_history:
-                add_chat_memory(task_id, chat)
         
-        self.chat_history = []
 
         # add system prompts to chat for task
         # set up reply json with alternative created
@@ -259,7 +266,7 @@ class ForgeAgent(Agent):
         }
 
         task_prompt = self.prompt_engine.load_prompt(
-            "step-work",
+            "step-work3",
             **ctoa_prompt_params
         )
 
@@ -268,31 +275,44 @@ class ForgeAgent(Agent):
         await self.add_chat(task_id, "user", task_prompt)
         # ----------------------------------------------------
 
-    async def clear_chat(self, task_id: str, last_action: str = None):
+    async def clear_chat(self, task_id: str) -> None:
         """
         Clear chat and remake with instruction messages
         """
         LOG.info(f"CHAT DUMP\n\n{self.chat_history}\n\n")
+
+        # get last chat message
+        last_msg = self.chat_history[-1]
 
         # clear chat and rebuild
         self.chat_history = []
         self.instruction_msgs[task_id] = []
         await self.set_instruction_messages(task_id)
 
-        if last_action:
-            self.chat_history.append({
-                "role": "user",
-                "content": f"You ran into an error and had to be reset.\nYour last message was '{last_action}'"
-            })
+        
 
-    def copy_to_temp(self, task_id: str):
+        self.chat_history.append({
+            "role": "user",
+            "content": f"Error caused chat reset. The last chat message:\n'{last_msg['content']}'"
+        })
+
+        ability_content = "Your last abilities used were:"
+        for ability in self.abilities_history:
+            ability_content += f" {ability} "
+        
+        self.chat_history.append({
+            "role": "user",
+            "content": ability_content
+        })
+
+    def copy_to_temp(self, task_id: str) -> None:
         """
         Copy files created from cwd to temp
         This was a temp fix due to the files not being copied but maybe
         fixed in newer forge version
         """
         cwd = self.workspace.get_cwd_path(task_id)
-        tmp = self.workspace.get_temp_path(task_id)
+        tmp = self.workspace.get_temp_path()
 
         for filename in os.listdir(cwd):
             if ".sqlite3" not in filename:
@@ -300,6 +320,30 @@ class ForgeAgent(Agent):
                 if os.path.isfile(file_path):
                     LOG.info(f"copying {str(file_path)} to {tmp}")
                     shutil.copy(file_path, tmp)
+
+    async def handle_tokens(self, task_id) -> None:
+        """
+        Token check to see if reaching limits or need to slow down
+        """
+        # get amount of tokens for chat with next message
+        self.total_token_amount = num_tokens_from_messages(self.chat_history, os.getenv("OPENAI_MODEL"))
+
+        # check if usage token is greater than 1000 and wait
+        # this is for the gpt4 api
+        LOG.info(f"Total Token Amount: {self.total_token_amount}")
+        if os.getenv("OPENAI_MODEL") == "gpt-4":
+            if self.total_token_amount >= 5000:
+                LOG.info("Token amount high. Waiting 1min to not hit limits")
+                time.sleep(60)
+                LOG.info("Continuing..")
+            elif self.total_token_amount >= 7000:
+                LOG.info("Token limit of 8192 being reached. Resetting chat")
+                await self.clear_chat(task_id)
+        elif os.getenv("OPENAI_MODEL") == "gpt-3.5-turbo":
+            if self.total_token_amount >= 4097:
+                LOG.info("Token limit of 4097 being reached. Resetting chat")
+                await self.clear_chat(task_id)
+
 
     async def execute_step(self, task_id: str, step_request: StepRequestBody) -> Step:
         # task = await self.db.get_task(task_id)
@@ -316,15 +360,10 @@ class ForgeAgent(Agent):
         step.status = "running"
 
         self.task_steps_amount[task_id] += 1
+        LOG.info(f"Step {self.task_steps_amount[task_id]}")
 
-        # check if it is an even step and if it is send AI messages to take a breath
-        print(f"Step {self.task_steps_amount[task_id]}")
-        # if (self.task_steps_amount[task_id] % 2) == 0:
-        #     await self.add_chat(
-        #         task_id,
-        #         "user",
-        #         "Step back and take a breath before continuing on"
-        #     )
+        # check tokens
+        await self.handle_tokens(task_id)
 
         # used in some chat messages
         timestamp = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
@@ -344,8 +383,10 @@ class ForgeAgent(Agent):
             # will have to cut down chat or clear it out
             LOG.error("Clearning chat and resending instructions due to API error")
             LOG.error(f"{err}")
+            if "RateLimitError" in str(err):
+                LOG.error("RATE LIMIT ERROR")
             LOG.error(f"last chat {self.chat_history[-1]}")
-            await self.clear_chat(task_id, self.chat_history[-1])
+            await self.clear_chat(task_id)
         else:
             # add response to chat log
             # LOG.info(f"⚙️ chat_response\n{chat_response}")
@@ -354,7 +395,7 @@ class ForgeAgent(Agent):
                 "assistant",
                 chat_response["choices"][0]["message"]["content"],
             )
-
+            
             try:
                 answer = json.loads(
                     chat_response["choices"][0]["message"]["content"])
@@ -370,7 +411,7 @@ class ForgeAgent(Agent):
                     await self.add_chat(
                         task_id=task_id,
                         role="user",
-                        content=f"[{timestamp}] Your reply was not in the correct JSON format. Correct and retry.\n{self.instruction_msgs[task_id][0]}"
+                        content=f"[{timestamp}] Your reply was not in the correct JSON format."
                     )
                 else:
                     # Set the step output and is_last from AI
@@ -385,85 +426,102 @@ class ForgeAgent(Agent):
 
                     if "ability" in answer:
 
+                        LOG.info(f"🤖 {answer['ability']}")
+
                         # Extract the ability from the answer
                         ability = answer["ability"]
 
-                        if ability and (
-                            ability["name"] != "" and
+                        print(ability)
+
+                        if (ability is not None and 
+                            ability != "" and 
+                            ability != "None"):
+                            print(ability)
+                            if (ability["name"] != "" and
                             ability["name"] != None and
                             ability["name"] != "None"):
-                            LOG.info(f"🔨 Running Ability {ability}")
+                                LOG.info(f"🔨 Running Ability {ability}")
 
-                            # Run the ability and get the output
-                            try:
-                                if "args" in ability:
-                                    output = await self.abilities.run_ability(
-                                        task_id,
-                                        ability["name"],
-                                        **ability["args"]
+                                # Run the ability and get the output
+                                try:
+                                    if "args" in ability:
+                                        output = await self.abilities.run_ability(
+                                            task_id,
+                                            ability["name"],
+                                            **ability["args"]
+                                        )
+                                    else:
+                                        output = await self.abilities.run_ability(
+                                            task_id,
+                                            ability["name"]
+                                        )   
+                                except Exception as err:
+                                    LOG.error(f"Ability run failed: {err}")
+                                    output = None
+                                    await self.add_chat(
+                                        task_id=task_id,
+                                        role="system",
+                                        content=f"[{timestamp}] Ability {ability['name']} error: {err}"
                                     )
                                 else:
-                                    output = await self.abilities.run_ability(
-                                        task_id,
-                                        ability["name"]
-                                    )   
-                            except Exception as err:
-                                LOG.error(f"Ability run failed: {err}")
-                                output = None
-                                await self.add_chat(
-                                    task_id=task_id,
-                                    role="system",
-                                    content=f"[{timestamp}] Ability {ability['name']} failed to run: {err}\nReview this error. Make sure you are calling the ability correctly."
-                                )
+                                    # change None output to blank string
+                                    # change output to string if there is bytes output
+                                    if output == None:
+                                        output = ""
+                                    elif isinstance(output, bytes):
+                                        output = output.decode()
+
+                                    LOG.info(f"🔨 Ability Output\n{output}")
+
+                                    # add to converstion
+                                    # add arguments to function content, if any
+                                    if "args" in ability:
+                                        ccontent = f"[Arguments {ability['args']}]: {output} "
+                                    else:
+                                        ccontent = output
+
+                                    if ccontent not in self.abilities_history:
+                                        # only save last three
+                                        if len(self.abilities_history) == 3:
+                                            self.abilities_history = []
+
+                                        self.abilities_history.append(ccontent)
+
+                                    await self.add_chat(
+                                        task_id=task_id,
+                                        role="function",
+                                        content=ccontent,
+                                        is_function=True,
+                                        function_name=ability["name"]
+                                    )
+
+                                    step.status = "completed"
+
+                                    if ability["name"] == "finish":
+                                        step.is_last = True
+                                        self.copy_to_temp(task_id)
                             else:
-                                if output == None:
-                                    output = ""
-
-                                LOG.info(f"🔨 Ability Output\n{output}")
-
-                                # change output to string if there is output
-                                if isinstance(output, bytes):
-                                    output = output.decode()
-                                
-                                # add to converstion
-                                # add arguments to function content, if any
-                                if "args" in ability:
-                                    ccontent = f"[Arguments {ability['args']}]: {output} "
-                                else:
-                                    ccontent = output
-
+                                LOG.info("No ability name found")
                                 await self.add_chat(
                                     task_id=task_id,
-                                    role="function",
-                                    content=ccontent,
-                                    is_function=True,
-                                    function_name=ability["name"]
+                                    role="user",
+                                    content=f"[{timestamp}] You stated an ability without a name. Please include the name of the ability you want to use"
                                 )
 
-                                step.status = "completed"
-
-                                if ability["name"] == "finish":
-                                    step.is_last = True
-                                    self.copy_to_temp(task_id)
-                        elif ability["name"] == "None" or ability["name"] == "":
+                        elif ability["name"] is not None and ability["name"] != "":
                             LOG.info("No ability found")
                             await self.add_chat(
                                 task_id=task_id,
                                 role="user",
-                                content=f"[{timestamp}] You didn't state a correct ability. You must use a real ability but if not using any set ability to None."
+                                content=f"[{timestamp}] You didn't state a correct ability. You must use a real ability but if not using any set ability to None or a blank string."
                             ) 
                     
 
             except json.JSONDecodeError as e:
                 # Handle JSON decoding errors
                 # notice when AI does this once it starts doing it repeatingly
-                LOG.error(f"agent.py - JSON error when decoding chat_response: {e}")
-                LOG.error(f"{chat_response}")
-                await self.add_chat(
-                    task_id=task_id,
-                    role="user",
-                    content=f"[{timestamp}] Your reply was not in the correct JSON format. Correct and retry.\n{self.instruction_msgs[task_id][0]}"
-                ) 
+                LOG.error(f"agent.py - JSON error, ignoring response: {e}")
+                LOG.info(f"🤖 {chat_response['choices'][0]['message']['content']}")
 
                 # LOG.info("Clearning chat and resending instructions due to JSON error")
                 # await self.clear_chat(task_id)

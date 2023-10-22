@@ -9,7 +9,8 @@ from .llm import (
     chat_completion_request, 
     create_embedding_request, 
     create_doc_embedding_request,
-    transcribe_audio
+    transcribe_audio,
+    num_tokens_from_messages
 )
 
 from .prompting import PromptEngine
