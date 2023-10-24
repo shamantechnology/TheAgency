@@ -97,13 +97,13 @@ class AIMemory:
                     query=self.all_query
                 )
 
-            if len(memory_resp["documents"][0]) > 0:
+            if len(memory_resp["documents"]) > 0:
                 logger.info(
-                    f"Relevant docs found! Doc count: {len(memory_resp['documents'][0])}")
+                    f"Relevant docs found! Doc count: {len(memory_resp['documents'])}")
                 
                 # need to add in chucking up of large docs
-                for i in range(len(memory_resp['documents'][0])):
-                    self.relevant_docs.append(memory_resp["documents"][0][i])
+                for i in range(len(memory_resp['documents'])):
+                    self.relevant_docs.append(memory_resp["documents"][i][0])
             else:
                 logger.info("No relevant docs found")
                 return False

@@ -21,20 +21,7 @@ def get_sep(tfile_readlines):
     
     return delim
 
-@ability(
-    name="csv_check",
-    description="Check if file is a CSV",
-    parameters=[
-        {
-            "name": "file_name",
-            "description": "Name of the file",
-            "type": "string",
-            "required": True
-        }
-    ],
-    output_type="bool"
-)
-async def csv_check(agent, task_id: str, file_name: str) -> bool:
+def csv_check(agent, task_id: str, file_name: str) -> bool:
     """
     Check if file is a CSV
     """
@@ -66,6 +53,9 @@ async def csv_get_columns(
     task_id: str,
     file_name: str
 ) -> List:
+    if not csv_check(agent, task_id, file_name):
+        return [f"{file_name} is not a CSV file"]
+    
     columns_list = ['No columns found']
 
     try:
@@ -87,13 +77,13 @@ async def csv_get_columns(
     description="Gets a list of column names that are the same between two files",
     parameters=[
         {
-            "name": "file1",
+            "name": "file_1",
             "description": "Name of the file",
             "type": "string",
             "required": True
         },
         {
-            "name": "file2",
+            "name": "file_2",
             "description": "Name of the file",
             "type": "string",
             "required": True
@@ -104,20 +94,25 @@ async def csv_get_columns(
 async def csv_get_same_columns(
     agent,
     task_id: str,
-    file1: str,
-    file2: str
+    file_1: str,
+    file_2: str
 ) -> List:
+    if not csv_check(agent, task_id, file_1):
+        return [f"{file_1} is not a CSV file"]
+    elif not csv_check(agent, task_id, file_2):
+        return [f"{file_2} is not a CSV file"]
+    
     matching_columns = ['No matching columns found'] 
     try:
-        file_readlines1 = agent.workspace.readlines(task_id=task_id, path=file1)
+        file_readlines1 = agent.workspace.readlines(task_id=task_id, path=file_1)
         file_sep1 = get_sep(file_readlines1)
 
-        file_readlines2 = agent.workspace.readlines(task_id=task_id, path=file2)
+        file_readlines2 = agent.workspace.readlines(task_id=task_id, path=file_2)
         file_sep2 = get_sep(file_readlines2)
 
         gcwd = agent.workspace.get_cwd_path(task_id)
-        df1 = pandas.read_csv(f"{gcwd}/{file1}", sep=file_sep1)
-        df2 = pandas.read_csv(f"{gcwd}/{file2}", sep=file_sep2)
+        df1 = pandas.read_csv(f"{gcwd}/{file_1}", sep=file_sep1)
+        df2 = pandas.read_csv(f"{gcwd}/{file_2}", sep=file_sep2)
 
         colmn1 = df1.columns.to_list()
         colmn2 = df2.columns.to_list()
@@ -196,6 +191,9 @@ async def csv_get_column_value(
     column: str,
     row_idx: int = -1
 ) -> Any:
+    if not csv_check(agent, task_id, file_name):
+        return [f"{file_name} is not a CSV file"]
+    
     row_val = "No value found"
     
     try:
@@ -248,6 +246,9 @@ async def csv_group_by_sum(
     column_1: str,
     column_2: str
 ) -> str:
+    if not csv_check(agent, task_id, file_name):
+        return [f"{file_name} is not a CSV file"]
+    
     cat_sum = "No sum found"
     try:
         file_readlines = agent.workspace.readlines(task_id=task_id, path=file_name)
@@ -356,6 +357,11 @@ async def csv_merge(
     column: str 
     ) -> str:
 
+    if not csv_check(agent, task_id, file_1):
+        return [f"{file_1} is not a CSV file"]
+    elif not csv_check(agent, task_id, file_2):
+        return [f"{file_2} is not a CSV file"]
+
     out_msg = f"{file_1} and {file_2} failed to merge"
     try:
         gcwd = agent.workspace.get_cwd_path(task_id)
@@ -409,6 +415,9 @@ async def csv_sort_by_column(
     input_file: str, 
     column: str,
     output_file: str) -> str:
+
+    if not csv_check(agent, task_id, input_file):
+        return [f"{input_file} is not a CSV file"]
 
     try:
         gcwd = agent.workspace.get_cwd_path(task_id)
@@ -477,6 +486,9 @@ async def csv_add_column_data(
     column: str,
     value: Any,
     row_index: int = -1) -> str:
+
+    if not csv_check(agent, task_id, input_file):
+        return [f"{input_file} is not a CSV file"]
 
     try:
         gcwd = agent.workspace.get_cwd_path(task_id)

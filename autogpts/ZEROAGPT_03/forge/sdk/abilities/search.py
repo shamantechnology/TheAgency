@@ -68,7 +68,7 @@ async def web_search(agent, task_id: str, query: str) -> str:
             safe_message
         )
 
-        return f"Search results added to memory with docID '{doc_id}'. Use mem_qna to with the docID to access it"
+        return f"Search results added to memory with docID '{doc_id}'. Use 'mem_qna' with the docID to access it"
     except Exception as err:
         logger.error(f"google_search failed: {err}")
         raise err

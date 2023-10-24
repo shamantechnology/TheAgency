@@ -258,7 +258,7 @@ async def mem_qna(
 ):
     mem_doc = "No documents found"
     try:
-        if file_name or len(file_name) > 0:
+        if file_name:
             aimem = AIMemory(
                 workspace=agent.workspace,
                 task_id=task_id,
@@ -267,7 +267,7 @@ async def mem_qna(
                 doc_type="file",
                 model="gpt-3.5-turbo-16k"
             )
-        elif chat_role or len(chat_role) > 0:
+        elif chat_role:
             aimem = AIMemory(
                 workspace=agent.workspace,
                 task_id=task_id,
@@ -276,7 +276,7 @@ async def mem_qna(
                 doc_type="chat",
                 model="gpt-3.5-turbo-16k"
             )
-        elif url or len(url) > 0:
+        elif url:
             aimem = AIMemory(
                 workspace=agent.workspace,
                 task_id=task_id,
@@ -285,7 +285,7 @@ async def mem_qna(
                 doc_type="website",
                 model="gpt-3.5-turbo-16k"
             )
-        elif doc_id or len(doc_id) > 0:
+        elif doc_id:
             aimem = AIMemory(
                 workspace=agent.workspace,
                 task_id=task_id,
@@ -294,7 +294,7 @@ async def mem_qna(
                 doc_type="doc_id",
                 model="gpt-3.5-turbo-16k"
             )
-        elif qall or len(qall) > 0:
+        elif qall:
             aimem = AIMemory(
                 workspace=agent.workspace,
                 task_id=task_id,

@@ -27,6 +27,7 @@ Best Practices:
 - Ability 'add_to_memory' only should be used with one parameter.
 - Ability 'read_from_memory' only should be used with one parameter.
 - Ability 'mem_qna' only should be used with two parameters and always include the query parameter.
+- Use 'read_from_memory' first to see if you can read the memory before using 'mem_qna'
 
 Examples: 
 - Merge files with 'csv_merge("output.csv", "file1.csv", "file2.csv", "ID")' if both have an 'ID' column.

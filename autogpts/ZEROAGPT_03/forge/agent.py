@@ -37,9 +37,6 @@ class ForgeAgent(Agent):
         # initialize chat history
         self.chat_history = []
 
-        # abilities history
-        self.abilities_history = []
-
         # expert profile
         self.expert_profile = None
 
@@ -52,13 +49,46 @@ class ForgeAgent(Agent):
         self.plan_steps = None
 
         # instruction messages
-        self.instruction_msgs = {}
+        self.instruction_msgs = []
 
         # keep number of steps per task
-        self.task_steps_amount = {}
+        self.task_steps_amount = 0
 
         # track amount of tokens to add a wait
         self.total_token_amount = 0
+    
+    def copy_to_temp(self, task_id: str) -> None:
+        """
+        Copy files created from cwd to temp
+        This was a temp fix due to the files not being copied but maybe
+        fixed in newer forge version
+        """
+        cwd = self.workspace.get_cwd_path(task_id)
+        tmp = self.workspace.get_temp_path()
+
+        for filename in os.listdir(cwd):
+            if ".sqlite3" not in filename:
+                file_path = os.path.join(cwd, filename)
+                if os.path.isfile(file_path):
+                    LOG.info(f"copying {str(file_path)} to {tmp}")
+                    shutil.copy(file_path, tmp)
+
+    def clear_temp(self) -> None:
+        """
+        Clear temp folder at each new task
+        """
+        tmp = self.workspace.get_temp_path()
+        LOG.info(f"Clearing temp_folder")
+        for filename in os.listdir(tmp):
+            file_path = os.path.join(tmp, filename)
+            try:
+                if os.path.isfile(file_path) or os.path.islink(file_path):
+                    os.unlink(file_path)
+                elif os.path.isdir(file_path):
+                    shutil.rmtree(file_path)
+                LOG.info(f"Deleted {filename}")
+            except Exception as e:
+                LOG.error('Failed to delete %s. Reason: %s' % (file_path, e))
 
     async def create_task(self, task_request: TaskRequestBody) -> Task:
         # set instruction amount to 0
@@ -90,7 +120,9 @@ class ForgeAgent(Agent):
 
         # clear chat and ability history
         self.chat_history = []
-        self.abilities_history = []
+
+        # clear temp folder
+        self.clear_temp()
         
         # get role for task
         # use AI to get the proper role experts for the task
@@ -112,10 +144,10 @@ class ForgeAgent(Agent):
                 # LOG.error(f"role_reply failed\n{err}")
         LOG.info("💡 Profile generated!")
         # add system prompts to chat for task
-        self.instruction_msgs[task.task_id] = []
+        self.instruction_msgs = []
         await self.set_instruction_messages(task.task_id)
 
-        self.task_steps_amount[task.task_id] = 0
+        self.task_steps_amount = 0
 
         return task
     
@@ -147,22 +179,18 @@ class ForgeAgent(Agent):
                 # usually the instructions are the last messages of the
                 # self.instruction_msgs but change if not
                 
-                LOG.info("Stuck in a repeat loop. Clearing and resetting")
-                await self.clear_chat(task_id)
-                
-                # adding note to AI
-                chat_struct["role"] = "user"
-                timestamp = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
-                remind_msg = f"[{timestamp}] Take a breath. Please complete the task by following the steps provided, and avoid hallucinating."
-                chat_struct["content"] = remind_msg
-
-                LOG.info(f"sending remind message\n{remind_msg}")
-                self.chat_history.append(chat_struct)
+                LOG.info("Stuck in a repeat loop. Waiting 30s then clearing and resetting chat")
+                time.sleep(30)
+                await self.clear_chat(task_id, True)
 
         except KeyError:
             self.chat_history = [chat_struct]
 
-    async def set_instruction_messages(self, task_id: str) -> None:
+    async def set_instruction_messages(
+        self,
+        task_id: str,
+        skip_plans: bool = False
+    ) -> None:
         """
         Add the call to action and response formatting
         system and user messages
@@ -191,8 +219,6 @@ class ForgeAgent(Agent):
 
         task = await self.db.get_task(task_id)
 
-        
-
         # add system prompts to chat for task
         # set up reply json with alternative created
         system_prompt = self.prompt_engine.load_prompt("system-reformat")
@@ -200,7 +226,7 @@ class ForgeAgent(Agent):
         # add to messages
         # wont memory store this as static
         # LOG.info(f"🖥️  {system_prompt}")
-        self.instruction_msgs[task_id].append(("system", system_prompt))
+        self.instruction_msgs.append(("system", system_prompt))
         await self.add_chat(task_id, "system", system_prompt)
 
         # add abilities prompt
@@ -210,7 +236,7 @@ class ForgeAgent(Agent):
         )
 
         # LOG.info(f"🖥️  {abilities_prompt}")
-        self.instruction_msgs[task_id].append(("system", abilities_prompt))
+        self.instruction_msgs.append(("system", abilities_prompt))
         await self.add_chat(task_id, "system", abilities_prompt)
 
         # add role system prompt
@@ -236,29 +262,30 @@ class ForgeAgent(Agent):
         )
 
         # LOG.info(f"🖥️  {role_prompt}")
-        self.instruction_msgs[task_id].append(("system", role_prompt))
+        self.instruction_msgs.append(("system", role_prompt))
         await self.add_chat(task_id, "system", role_prompt)
 
         # setup call to action (cta) with task and abilities
         # use ai to plan the steps
-        self.ai_plan = AIPlanning(
-            task.input,
-            task_id,
-            self.abilities.list_abilities_for_prompt(),
-            self.workspace,
-            "gpt-3.5-turbo"
-        )
+        if not skip_plans:
+            self.ai_plan = AIPlanning(
+                task.input,
+                task_id,
+                self.abilities.list_abilities_for_prompt(),
+                self.workspace,
+                "gpt-3.5-turbo"
+            )
 
-        # plan_steps = None
-        # while plan_steps_prompt is None:
-        LOG.info("💡 Generating step plans...")
-        try:
-            self.plan_steps = await self.ai_plan.create_steps()
-        except Exception as err:
-            # pass
-            LOG.error(f"plan_steps_prompt failed\n{err}")
-        
-        LOG.info(f"🖥️ planned steps\n{self.plan_steps}")
+            # plan_steps = None
+            # while plan_steps_prompt is None:
+            LOG.info("💡 Generating step plans...")
+            try:
+                self.plan_steps = await self.ai_plan.create_steps()
+            except Exception as err:
+                # pass
+                LOG.error(f"plan_steps_prompt failed\n{err}")
+            
+            LOG.info(f"🖥️ planned steps\n{self.plan_steps}")
         
         ctoa_prompt_params = {
             "plan": self.plan_steps,
@@ -271,56 +298,51 @@ class ForgeAgent(Agent):
         )
 
         # LOG.info(f"🤓 {task_prompt}")
-        self.instruction_msgs[task_id].append(("user", task_prompt))
+        self.instruction_msgs.append(("user", task_prompt))
         await self.add_chat(task_id, "user", task_prompt)
         # ----------------------------------------------------
 
-    async def clear_chat(self, task_id: str) -> None:
+    async def clear_chat(self, task_id: str, clear_plans: bool = False) -> None:
         """
         Clear chat and remake with instruction messages
         """
         LOG.info(f"CHAT DUMP\n\n{self.chat_history}\n\n")
 
-        # get last chat message
-        last_msg = self.chat_history[-1]
+        # reset steps
+        self.task_steps_amount = 0
+
+        # get last assistant thoughts
+        last_thoughts = ""
+        last_ability = ""
+
+        # get last/most recent thought
+        for i in range(len(self.chat_history), -1, -1):
+            if self.chat_history[i]["role"] == "assistant":
+                last_thoughts = self.chat_history[i]["content"]["thoughts"]
+                break
+        
+        # get last/most recent ability used
+        for i in range(len(self.chat_history), -1, -1):
+            if self.chat_history[i]["role"] == "function":        
+                last_ability = self.chat_history[i]["content"]
+                break
+
+        # last_msg = self.chat_history[-1]
 
         # clear chat and rebuild
         self.chat_history = []
-        self.instruction_msgs[task_id] = []
-        await self.set_instruction_messages(task_id)
+        self.instruction_msgs = []
 
-        
+        if self.plan_steps and not clear_plans:
+            await self.set_instruction_messages(task_id, skip_plans=True)
+        else:
+            await self.set_instruction_messages(task_id)
 
         self.chat_history.append({
             "role": "user",
-            "content": f"Error caused chat reset. The last chat message:\n'{last_msg['content']}'"
+            "content": f"Error caused chat reset. Your last thought was\n'{last_thoughts}'\nYour last ability used was\n'{last_ability}'"
         })
-
-        ability_content = "Your last abilities used were:"
-        for ability in self.abilities_history:
-            ability_content += f" {ability} "
-        
-        self.chat_history.append({
-            "role": "user",
-            "content": ability_content
-        })
-
-    def copy_to_temp(self, task_id: str) -> None:
-        """
-        Copy files created from cwd to temp
-        This was a temp fix due to the files not being copied but maybe
-        fixed in newer forge version
-        """
-        cwd = self.workspace.get_cwd_path(task_id)
-        tmp = self.workspace.get_temp_path()
-
-        for filename in os.listdir(cwd):
-            if ".sqlite3" not in filename:
-                file_path = os.path.join(cwd, filename)
-                if os.path.isfile(file_path):
-                    LOG.info(f"copying {str(file_path)} to {tmp}")
-                    shutil.copy(file_path, tmp)
-
+    
     async def handle_tokens(self, task_id) -> None:
         """
         Token check to see if reaching limits or need to slow down
@@ -359,10 +381,10 @@ class ForgeAgent(Agent):
 
         step.status = "running"
 
-        self.task_steps_amount[task_id] += 1
-        LOG.info(f"Step {self.task_steps_amount[task_id]}")
+        self.task_steps_amount += 1
+        LOG.info(f"Step {self.task_steps_amount}")
 
-        # check tokens
+        # check tokens before chat completion
         await self.handle_tokens(task_id)
 
         # used in some chat messages
@@ -373,7 +395,7 @@ class ForgeAgent(Agent):
             chat_completion_parms = {
                 "messages": self.chat_history,
                 "model": os.getenv("OPENAI_MODEL"),
-                "temperature": 0.5
+                "temperature": 0.2
             }
 
             chat_response = await chat_completion_request(
@@ -388,17 +410,17 @@ class ForgeAgent(Agent):
             LOG.error(f"last chat {self.chat_history[-1]}")
             await self.clear_chat(task_id)
         else:
-            # add response to chat log
-            # LOG.info(f"⚙️ chat_response\n{chat_response}")
-            await self.add_chat(
-                task_id,
-                "assistant",
-                chat_response["choices"][0]["message"]["content"],
-            )
-            
             try:
                 answer = json.loads(
                     chat_response["choices"][0]["message"]["content"])
+                
+                # add response to chat log
+                # LOG.info(f"⚙️ chat_response\n{chat_response}")
+                await self.add_chat(
+                    task_id,
+                    "assistant",
+                    answer
+                )
                 
                 output = None
                 
@@ -431,12 +453,9 @@ class ForgeAgent(Agent):
                         # Extract the ability from the answer
                         ability = answer["ability"]
 
-                        print(ability)
-
                         if (ability is not None and 
                             ability != "" and 
                             ability != "None"):
-                            print(ability)
                             if (ability["name"] != "" and
                             ability["name"] != None and
                             ability["name"] != "None"):
@@ -480,13 +499,6 @@ class ForgeAgent(Agent):
                                     else:
                                         ccontent = output
 
-                                    if ccontent not in self.abilities_history:
-                                        # only save last three
-                                        if len(self.abilities_history) == 3:
-                                            self.abilities_history = []
-
-                                        self.abilities_history.append(ccontent)
-
                                     await self.add_chat(
                                         task_id=task_id,
                                         role="function",
@@ -508,7 +520,7 @@ class ForgeAgent(Agent):
                                     content=f"[{timestamp}] You stated an ability without a name. Please include the name of the ability you want to use"
                                 )
 
-                        elif ability["name"] is not None and ability["name"] != "":
+                        elif ability is not None and ability != "":
                             LOG.info("No ability found")
                             await self.add_chat(
                                 task_id=task_id,
@@ -533,8 +545,8 @@ class ForgeAgent(Agent):
                 # await self.clear_chat(task_id)
 
         # dump whole chat log at last step
-        if step.is_last and task_id in self.chat_history:
-            LOG.info(f"{pprint.pformat(self.chat_history, indext=4, width=100)}")
+        if step.is_last and self.chat_history:
+            LOG.info(f"{pprint.pformat(self.chat_history, indent=4, width=100)}")
 
         # Return the completed step
         return step
