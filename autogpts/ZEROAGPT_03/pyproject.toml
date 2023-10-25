@@ -25,6 +25,7 @@ pyautogen = "^0.1.10"
 agbenchmark = { path = "../../benchmark" }
 duckduckgo-search = "^3.8.0"
 litellm = "^0.10.1"
+tiktoken = "^0.5.1"
 
 [tool.poetry.extras]
 benchmark = ["agbenchmark"]

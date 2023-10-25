@@ -44,7 +44,7 @@ class AIPlanning:
         )
         
         step_prompt = self.prompt_engine.load_prompt(
-            "get-steps",
+            "get-steps3",
             **{
                 "task": self.task
             }
@@ -72,7 +72,7 @@ class AIPlanning:
         chat_completion_parms = {
             "messages": chat_list,
             "model": self.model,
-            "temperature": 0.7
+            "temperature": 0.5
         }
         
         response = await chat_completion_request(
