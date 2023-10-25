@@ -38,7 +38,7 @@ async def web_search(agent, task_id: str, query: str) -> str:
     try:
         search_results = []
         attempts = 0
-        num_results = 8
+        num_results = 3
 
         while attempts < DUCKDUCKGO_MAX_ATTEMPTS:
             if not query:
@@ -53,22 +53,31 @@ async def web_search(agent, task_id: str, query: str) -> str:
             time.sleep(1)
             attempts += 1
 
-        results = json.dumps(search_results, ensure_ascii=False)
+        cut_search_results = []
+        for res in search_results:
+            res["body"] = res["body"][:5]
+            cut_search_results.append(res)
+
+        results = json.dumps(cut_search_results, ensure_ascii=False)
         
         if isinstance(results, list):
+            # cut down body to 10 words
             safe_message = json.dumps(
                 [result.encode("utf-8", "ignore").decode("utf-8") for result in results]
             )
         else:
             safe_message = results.encode("utf-8", "ignore").decode("utf-8")
 
-        doc_id = add_search_memory(
+        # save full list
+        add_search_memory(
             task_id,
             query,
             safe_message
         )
 
-        return f"Search results added to memory with docID '{doc_id}'. Use 'mem_qna' with the docID to access it"
+        # return top 3 results to save tokens
+        return safe_message
+
     except Exception as err:
         logger.error(f"google_search failed: {err}")
         raise err

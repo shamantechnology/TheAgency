@@ -89,6 +89,47 @@ class ForgeAgent(Agent):
                 LOG.info(f"Deleted {filename}")
             except Exception as e:
                 LOG.error('Failed to delete %s. Reason: %s' % (file_path, e))
+    
+    async def clear_chat(self, task_id: str, clear_plans: bool = False, fresh: bool = False) -> None:
+        """
+        Clear chat and remake with instruction messages
+        """
+        LOG.info(f"CHAT DUMP\n\n{self.chat_history}\n\n")
+
+        # reset steps
+        self.task_steps_amount = 0
+
+        # clear chat and rebuild
+        self.chat_history = []
+        self.instruction_msgs = []
+
+        if self.plan_steps and not clear_plans:
+            await self.set_instruction_messages(task_id, skip_plans=True)
+        else:
+            await self.set_instruction_messages(task_id)
+
+        if fresh:
+            # get last assistant thoughts
+            last_thoughts = ""
+            last_ability = ""
+
+            # get last/most recent thought
+            for i in reversed(range(len(self.chat_history))):
+                if self.chat_history[i]["role"] == "assistant":
+                    ch_json = json.loads(self.chat_history[i]["content"])
+                    last_thoughts = json.dumps(ch_json["thoughts"])
+                    break
+            
+            # get last/most recent ability used
+            for i in reversed(range(len(self.chat_history))):
+                if self.chat_history[i]["role"] == "function":       
+                    last_ability = self.chat_history[i]["content"]
+                    break
+
+            self.chat_history.append({
+                "role": "user",
+                "content": f"Error caused chat reset. Your last thought was\n'{last_thoughts}'\nYour last ability used was\n'{last_ability}'"
+            })
 
     async def create_task(self, task_request: TaskRequestBody) -> Task:
         # set instruction amount to 0
@@ -175,13 +216,10 @@ class ForgeAgent(Agent):
             if chat_struct not in self.chat_history:
                 self.chat_history.append(chat_struct)
             else:
-                # resend the instructions to continue AI on its goal
-                # usually the instructions are the last messages of the
-                # self.instruction_msgs but change if not
-                
+                # clear chat, resend instructions, dont include past messages
                 LOG.info("Stuck in a repeat loop. Waiting 30s then clearing and resetting chat")
                 time.sleep(30)
-                await self.clear_chat(task_id, True)
+                await self.clear_chat(task_id, True, True)
 
         except KeyError:
             self.chat_history = [chat_struct]
@@ -301,47 +339,6 @@ class ForgeAgent(Agent):
         self.instruction_msgs.append(("user", task_prompt))
         await self.add_chat(task_id, "user", task_prompt)
         # ----------------------------------------------------
-
-    async def clear_chat(self, task_id: str, clear_plans: bool = False) -> None:
-        """
-        Clear chat and remake with instruction messages
-        """
-        LOG.info(f"CHAT DUMP\n\n{self.chat_history}\n\n")
-
-        # reset steps
-        self.task_steps_amount = 0
-
-        # get last assistant thoughts
-        last_thoughts = ""
-        last_ability = ""
-
-        # get last/most recent thought
-        for i in range(len(self.chat_history), -1, -1):
-            if self.chat_history[i]["role"] == "assistant":
-                last_thoughts = self.chat_history[i]["content"]["thoughts"]
-                break
-        
-        # get last/most recent ability used
-        for i in range(len(self.chat_history), -1, -1):
-            if self.chat_history[i]["role"] == "function":        
-                last_ability = self.chat_history[i]["content"]
-                break
-
-        # last_msg = self.chat_history[-1]
-
-        # clear chat and rebuild
-        self.chat_history = []
-        self.instruction_msgs = []
-
-        if self.plan_steps and not clear_plans:
-            await self.set_instruction_messages(task_id, skip_plans=True)
-        else:
-            await self.set_instruction_messages(task_id)
-
-        self.chat_history.append({
-            "role": "user",
-            "content": f"Error caused chat reset. Your last thought was\n'{last_thoughts}'\nYour last ability used was\n'{last_ability}'"
-        })
     
     async def handle_tokens(self, task_id) -> None:
         """
@@ -395,7 +392,7 @@ class ForgeAgent(Agent):
             chat_completion_parms = {
                 "messages": self.chat_history,
                 "model": os.getenv("OPENAI_MODEL"),
-                "temperature": 0.2
+                "temperature": 0.5
             }
 
             chat_response = await chat_completion_request(
@@ -419,7 +416,7 @@ class ForgeAgent(Agent):
                 await self.add_chat(
                     task_id,
                     "assistant",
-                    answer
+                    chat_response["choices"][0]["message"]["content"]
                 )
                 
                 output = None
@@ -533,10 +530,10 @@ class ForgeAgent(Agent):
                 # Handle JSON decoding errors
                 # notice when AI does this once it starts doing it repeatingly
                 LOG.error(f"agent.py - JSON error, ignoring response: {e}")
-                LOG.info(f"🤖 {chat_response['choices'][0]['message']['content']}")
+                LOG.error(f"🤖 {chat_response['choices'][0]['message']['content']}")
 
-                # LOG.info("Clearning chat and resending instructions due to JSON error")
-                # await self.clear_chat(task_id)
+                LOG.info("Clearning chat and resending instructions due to JSON error")
+                await self.clear_chat(task_id, True, True)
             except Exception as e:
                 # Handle other exceptions
                 LOG.error(f"execute_step error: {e}")

@@ -102,7 +102,7 @@ async def list_files(agent, task_id: str, path: str) -> List[str]:
     ],
     output_type="None",
 )
-async def write_file(agent, task_id: str, file_name: str, data: bytes) -> None:
+async def write_file(agent, task_id: str, file_name: str, data: bytes) -> str:
     """
     Write data to a file
     """
@@ -128,6 +128,8 @@ async def write_file(agent, task_id: str, file_name: str, data: bytes) -> None:
             relative_path=file_name,
             agent_created=True,
         )
+
+        print(f"Writing data to {file_name} successful")
     except Exception as err:
         logger.error(f"write_file failed: {err}")
         raise err
