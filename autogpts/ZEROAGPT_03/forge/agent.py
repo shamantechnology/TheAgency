@@ -22,8 +22,8 @@ from forge.sdk import (
     num_tokens_from_messages
 )
 
-from forge.sdk.memory.memstore import ChromaMemStore
-from forge.sdk.memory.memstore_tools import add_chat_memory
+from forge.sdk.memory.chroma_memstore import ChromaMemStore
+from forge.sdk.memory.weaviate_memstore import WeaviateMemstore
 
 from forge.sdk.ai_planning import AIPlanning
 
@@ -36,6 +36,9 @@ class ForgeAgent(Agent):
         
         # initialize chat history
         self.chat_history = []
+
+        # steps completed histroy
+        self.steps_completed = []
 
         # expert profile
         self.expert_profile = None
@@ -56,6 +59,13 @@ class ForgeAgent(Agent):
 
         # track amount of tokens to add a wait
         self.total_token_amount = 0
+
+        # track amount it repeats
+        self.repeating = 0
+
+        # memstore
+        self.memstore_db = os.getenv("VECTOR_DB")
+        self.memstore = None
     
     def copy_to_temp(self, task_id: str) -> None:
         """
@@ -90,7 +100,7 @@ class ForgeAgent(Agent):
             except Exception as e:
                 LOG.error('Failed to delete %s. Reason: %s' % (file_path, e))
     
-    async def clear_chat(self, task_id: str, clear_plans: bool = False, fresh: bool = False) -> None:
+    async def clear_chat(self, task_id: str, fresh: bool = False) -> None:
         """
         Clear chat and remake with instruction messages
         """
@@ -102,13 +112,11 @@ class ForgeAgent(Agent):
         # clear chat and rebuild
         self.chat_history = []
         self.instruction_msgs = []
+        self.steps_completed = []
 
-        if self.plan_steps and not clear_plans:
-            await self.set_instruction_messages(task_id, skip_plans=True)
-        else:
-            await self.set_instruction_messages(task_id)
+        await self.set_instruction_messages(task_id)
 
-        if fresh:
+        if not fresh:
             # get last assistant thoughts
             last_thoughts = ""
             last_ability = ""
@@ -150,12 +158,17 @@ class ForgeAgent(Agent):
         
         # initalize memstore for task
         try:
-            # initialize memstore
-            cwd = self.workspace.get_cwd_path(task.task_id)
-            chroma_dir = f"{cwd}/chromadb"
-            os.makedirs(chroma_dir)
-            ChromaMemStore(chroma_dir+"/")
-            LOG.info(f"🧠 Created memorystore @ {os.getenv('AGENT_WORKSPACE')}/{task.task_id}/chroma")
+            if self.memstore_db == "chroma":
+                # initialize chroma memstore
+                cwd = self.workspace.get_cwd_path(task.task_id)
+                chroma_dir = f"{cwd}/chromadb"
+                os.makedirs(chroma_dir)
+                self.memstore = ChromaMemStore(chroma_dir+"/")
+                LOG.info(f"🧠 Created Chroma memorystore @ {os.getenv('AGENT_WORKSPACE')}/{task.task_id}/chroma")
+            elif self.memstore_db == "weaviate":
+                # initialize weaviate
+                LOG.info("🧠 Initializing Weaviate")
+                self.memstore = WeaviateMemstore(use_embedded=True)
         except Exception as err:
             LOG.error(f"memstore creation failed: {err}")
 
@@ -216,18 +229,21 @@ class ForgeAgent(Agent):
             if chat_struct not in self.chat_history:
                 self.chat_history.append(chat_struct)
             else:
-                # clear chat, resend instructions, dont include past messages
-                LOG.info("Stuck in a repeat loop. Waiting 30s then clearing and resetting chat")
-                time.sleep(30)
-                await self.clear_chat(task_id, True, True)
+                # clear after three times
+                if self.repeating == 3:
+                    # clear chat, resend instructions, dont include past messages
+                    LOG.info("Stuck in a repeat loop. Waiting 30s then clearing and resetting chat")
+                    self.repeating = 0
+                    await self.clear_chat(task_id, True)
+                else:
+                    self.repeating += 1
 
         except KeyError:
             self.chat_history = [chat_struct]
 
     async def set_instruction_messages(
         self,
-        task_id: str,
-        skip_plans: bool = False
+        task_id: str
     ) -> None:
         """
         Add the call to action and response formatting
@@ -305,7 +321,16 @@ class ForgeAgent(Agent):
 
         # setup call to action (cta) with task and abilities
         # use ai to plan the steps
-        if not skip_plans:
+        if len(self.steps_completed) > 0:
+            self.ai_plan = AIPlanning(
+                task.input,
+                task_id,
+                self.abilities.list_abilities_for_prompt(),
+                self.workspace,
+                "gpt-3.5-turbo",
+                self.steps_completed
+            )
+        else:
             self.ai_plan = AIPlanning(
                 task.input,
                 task_id,
@@ -438,10 +463,16 @@ class ForgeAgent(Agent):
                         step.output = answer["thoughts"]["speak"]
                     else:
                         step.output = "Nothing to say..."
+
+                    # get the step completed
+                    if "step completed" in answer["thoughts"]:
+                        step_completed = answer["thoughts"]["step completed"]
+                        if step_completed != "None" and step_completed != None:
+                            self.steps_completed.append(answer["thoughts"]["step completed"])
+                        
+                        LOG.info(f"Steps completed: {self.steps_completed}")
                         
                     LOG.info(f"🤖 {step.output}")
-                        
-                    LOG.info(f"⏳ step status {step.status} is_last? {step.is_last}")
 
                     if "ability" in answer:
 
@@ -533,7 +564,7 @@ class ForgeAgent(Agent):
                 LOG.error(f"🤖 {chat_response['choices'][0]['message']['content']}")
 
                 LOG.info("Clearning chat and resending instructions due to JSON error")
-                await self.clear_chat(task_id, True, True)
+                await self.clear_chat(task_id, True)
             except Exception as e:
                 # Handle other exceptions
                 LOG.error(f"execute_step error: {e}")

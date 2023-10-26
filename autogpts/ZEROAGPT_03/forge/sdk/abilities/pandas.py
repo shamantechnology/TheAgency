@@ -4,7 +4,7 @@ Small pandas interface for CSV and other tabulated data
 from typing import List, Any
 import pandas
 import csv
-from forge.sdk.memory.memstore_tools import add_ability_memory
+# from forge.sdk.memory.memstore_tools import add_ability_memory
 
 from ..forge_log import ForgeLogger
 from .registry import ability
@@ -17,7 +17,7 @@ def get_sep(tfile_readlines):
     delim = sn.sniff(tfile_readlines[0].decode()).delimiter
 
     if delim == "t" or delim == "n":
-        delim = f"\{delim}"
+        delim = "\\" + delim
     
     return delim
 

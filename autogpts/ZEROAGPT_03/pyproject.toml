@@ -26,6 +26,10 @@ agbenchmark = { path = "../../benchmark" }
 duckduckgo-search = "^3.8.0"
 litellm = "^0.10.1"
 tiktoken = "^0.5.1"
+selenium = "^4.14.0"
+webdriver-manager = "^4.0.1"
+weaviate-client = "*"
+fake-useragent = "^1.3.0"
 
 [tool.poetry.extras]
 benchmark = ["agbenchmark"]

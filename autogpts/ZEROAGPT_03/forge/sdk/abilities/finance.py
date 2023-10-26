@@ -89,7 +89,8 @@ async def get_financials_year(
                 add_ability_memory(
                     task_id,
                     str(financial_data),
-                    "get_financials_year"
+                    "get_financials_year",
+                    agent.memstore
                 )
     except Exception as err:
         logger.error(f"get_financials_year failed: {err}")

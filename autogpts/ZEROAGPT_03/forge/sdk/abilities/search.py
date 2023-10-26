@@ -13,7 +13,7 @@ import lxml
 
 from duckduckgo_search import DDGS
 
-from ..memory.memstore_tools import add_search_memory
+# from ..memory.memstore_tools import add_search_memory
 from ..forge_log import ForgeLogger
 from .registry import ability
 
@@ -38,7 +38,7 @@ async def web_search(agent, task_id: str, query: str) -> str:
     try:
         search_results = []
         attempts = 0
-        num_results = 3
+        num_results = 6
 
         while attempts < DUCKDUCKGO_MAX_ATTEMPTS:
             if not query:
@@ -55,7 +55,7 @@ async def web_search(agent, task_id: str, query: str) -> str:
 
         cut_search_results = []
         for res in search_results:
-            res["body"] = res["body"][:5]
+            res["body"] = res["body"][:20]
             cut_search_results.append(res)
 
         results = json.dumps(cut_search_results, ensure_ascii=False)
@@ -69,11 +69,11 @@ async def web_search(agent, task_id: str, query: str) -> str:
             safe_message = results.encode("utf-8", "ignore").decode("utf-8")
 
         # save full list
-        add_search_memory(
-            task_id,
-            query,
-            safe_message
-        )
+        # add_search_memory(
+        #     task_id,
+        #     query,
+        #     safe_message
+        # )
 
         # return top 3 results to save tokens
         return safe_message

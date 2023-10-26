@@ -95,17 +95,18 @@ class LocalWorkspace(Workspace):
         # path = self.base_path / task_id / path
         base = self._resolve_path(task_id, path)
         file_list = []
-        for p in base.iterdir():
-            filename = str(p.relative_to(self.base_path / task_id))
-            if p.is_dir():
-                filetype = "directory"
-            elif p.is_file():
-                filetype = "file"
-            
-            file_list.append({
-                "filename": filename,
-                "filetype": filetype
-            })
+        if base.exists() or base.is_dir():
+            for p in base.iterdir():
+                filename = str(p.relative_to(self.base_path / task_id))
+                if p.is_dir():
+                    filetype = "directory"
+                elif p.is_file():
+                    filetype = "file"
+                
+                file_list.append({
+                    "filename": filename,
+                    "filetype": filetype
+                })
 
         return file_list
 

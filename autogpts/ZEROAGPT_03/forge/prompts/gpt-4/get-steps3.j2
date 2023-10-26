@@ -1,28 +1,26 @@
-Generate a precise list of steps for the task '{{ task }}' following constraints and best practices. Just give the list and nothing else following this format:
+Generate a precise list of steps for the task '{{ task }}' following constraints and best practices. Give the list in this JSON format only:
 
-1.  Step 1
-2.  Step 2
-3.  Step 3
-4.  Step 4
-....
+{"steps":[{"order": "integer of order of step", "step": "description of step at this order"}]}
 
 Constraints:
 - Conclude each step sequence with 'Finish' ability and justify.
 - Don't use abilities as arguments for other abilities.
 - Utilize provided 'Task Abilities.'
 - Prefer local data sources.
-- Handle multiple files, confining 'CSV' abilities to CSV files.
+- Handle multiple files, confining 'csv' abilities to CSV files.
 - Include vital files only, ensure precision, and analyze data before task completion.
 - Assume local files share the source code folder.
 - Utilize discovered resources effectively.
 - Store websites by url with the 'add_to_memory' ability and then ask questions about the site with the 'mem_qna' ability
 
 Best Practices:
+- Do not create plans around assumptions. Do not assume you will be working with a certain file or other data and make sure to check. Multiple steps to cover different scenario can help.
+- Do not assume when asked about data that it will be in a file locally, make sure to use all abilities that are necessary to find the data 
 - Note files from 'list_files'.
 - Search for specific formats/examples in the task description.
 - Load files into memory before reading.
 - Use 'mem_qna' for files over 50 characters.
-- Revise steps if confidence is low; avoid useless repetition.
+- Avoid useless repetition.
 - Understand data analytically without depending on abilities.
 - Add missed files to memory.
 - Create missing CSV columns before data addition.
@@ -34,6 +32,9 @@ Best Practices:
 - Ability 'read_from_memory' only should be used with one parameter.
 - Ability 'mem_qna' only should be used with two parameters and always include the query parameter.
 - Use 'read_from_memory' first to see if you can read the memory before using 'mem_qna'
+- When researching, use more than one source for the data you need to complete the task
+- When searching with 'web_search' explore the urls by adding their content to 'add_to_memory' then 'mem_qna' to ask a question about the website
+
 
 Examples: 
 - Merge files with 'csv_merge("output.csv", "file1.csv", "file2.csv", "ID")' if both have an 'ID' column.

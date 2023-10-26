@@ -20,13 +20,15 @@ class AIPlanning:
         task_id: str,
         abilities: str,
         workspace: Workspace,
-        model: str = os.getenv("OPENAI_MODEL")):
+        model: str = os.getenv("OPENAI_MODEL"),
+        steps_completed: list = None):
         
         self.task = task
         self.task_id = task_id
         self.abilities = abilities
         self.workspace = workspace
         self.model = model
+        self.steps_completed = steps_completed
 
         self.logger = ForgeLogger(__name__)
 
@@ -64,6 +66,13 @@ class AIPlanning:
                 "content": step_prompt
             }
         ]
+
+        if self.steps_completed:
+            hsteps_list = '\n'.join(self.steps_completed)
+            chat_list.append({
+                "role": "user",
+                "content": f"There was an error but we have a history of steps completed. Please make a new plan after these steps and make sure they are the proper steps taken. Come up with a whole new plan if needed.\n{hsteps_list}"
+            })
 
         # self.logger.info(f"🤔 AIPlanner\n")
         # for chat in chat_list:
