@@ -120,7 +120,12 @@ async def write_file(agent, task_id: str, file_name: str, data: bytes) -> None:
         data = data.replace('\\n', '\n')
 
         # add to memory
-        add_ability_memory(task_id, data, "write_file")
+        add_ability_memory(
+            task_id,
+            data,
+            "write_file",
+            agent.memstore
+        )
 
         # convert back to bytes
         data = str.encode(data)

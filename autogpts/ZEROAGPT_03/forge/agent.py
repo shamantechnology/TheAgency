@@ -20,8 +20,8 @@ from forge.sdk import (
     num_tokens_from_messages
 )
 
-from forge.sdk.memory.memstore import ChromaMemStore
-from forge.sdk.memory.memstore_tools import add_chat_memory
+from forge.sdk.memory.chroma_memstore import ChromaMemStore
+from forge.sdk.memory.weaviate_memstore import WeaviateMemstore
 
 from forge.sdk.ai_planning import AIPlanning
 
@@ -303,10 +303,11 @@ class ForgeAgent(Agent):
         # use ai to plan the steps
         if not skip_plans:
             self.ai_plan = AIPlanning(
-                task=task.input,
-                task_id=task_id,
-                abilities=self.abilities.list_abilities_for_prompt(),
-                workspace=self.workspace
+                task.input,
+                task_id,
+                self.abilities.list_abilities_for_prompt(),
+                self.workspace,
+                "gpt-3.5-turbo"
             )
 
             # plan_steps = None
@@ -511,12 +512,17 @@ class ForgeAgent(Agent):
 
             # play(audio)
 
-        except json.JSONDecodeError as e:
-            # Handle JSON decoding errors
-            LOG.error(f"JSON error when decoding: {e}")
-        except Exception as e:
-            # Handle other exceptions
-            LOG.error(f"execute_step error: {e}")
+            except json.JSONDecodeError as e:
+                # Handle JSON decoding errors
+                # notice when AI does this once it starts doing it repeatingly
+                LOG.error(f"agent.py - JSON error, ignoring response: {e}")
+                LOG.error(f"🤖 {chat_response['choices'][0]['message']['content']}")
+
+                LOG.info("Clearning chat and resending instructions due to JSON error")
+                await self.clear_chat(task_id, True)
+            except Exception as e:
+                # Handle other exceptions
+                LOG.error(f"execute_step error: {e}")
 
         # dump whole chat log at last step
         if step.is_last and self.chat_history:

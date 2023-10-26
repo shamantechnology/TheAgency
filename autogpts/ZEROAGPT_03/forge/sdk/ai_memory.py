@@ -2,7 +2,7 @@
 Load documents in AI and for QnA
 """
 import os
-from typing import Any
+from typing import Anyfrom typing import Any
 from .forge_log import ForgeLogger
 from .memory.chroma_memstore import ChromaMemStore
 from .memory.weaviate_memstore import WeaviateMemstore
@@ -98,16 +98,24 @@ class AIMemory:
                         query=self.all_query
                     )
 
-            if len(memory_resp["documents"]) > 0:
-                logger.info(
-                    f"Relevant docs found! Doc count: {len(memory_resp['documents'])}")
-                
-                # need to add in chucking up of large docs
-                for i in range(len(memory_resp['documents'])):
-                    self.relevant_docs.append(memory_resp["documents"][i][0])
+                if len(memory_resp["documents"]) > 0:
+                    logger.info(
+                        f"Relevant docs found! Doc count: {len(memory_resp['documents'])}")
+                    
+                    # need to add in chucking up of large docs
+                    for i in range(len(memory_resp['documents'])):
+                        if len(memory_resp["documents"][i]) > 1:
+                            self.relevant_docs.append(memory_resp["documents"][i][0])
+
+                    if len(self.relevant_docs) == 0:
+                        logger.info("No relevant docs found")
+                        return False
+                else:
+                    logger.info("No relevant docs found")
+                    return False
             else:
-                logger.info("No relevant docs found")
-                return False
+                logger.error(f"No supported memstore found for method 'get_doc'. Please supply a supported memstore")
+                raise AttributeError
         except Exception as err:
             logger.error(f"get_doc failed: {err}")
             raise err

@@ -67,6 +67,13 @@ class AIPlanning:
             }
         ]
 
+        if self.steps_completed:
+            hsteps_list = '\n'.join(self.steps_completed)
+            chat_list.append({
+                "role": "user",
+                "content": f"There was an error but we have a history of steps completed. Please make a new plan after these steps and make sure they are the proper steps taken. Come up with a whole new plan if needed.\n{hsteps_list}"
+            })
+
         # self.logger.info(f"🤔 AIPlanner\n")
         # for chat in chat_list:
             # self.logger.info(f"role: {chat['role']}\ncontent: {chat['content']}")
