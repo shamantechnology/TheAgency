@@ -106,10 +106,21 @@ async def write_file(agent, task_id: str, file_path: str, data: bytes) -> None:
     """
     Write data to a file
     """
-    if isinstance(data, str):
-        data = data.encode()
+    # convert to string and clean up data
+    try:
+        if isinstance(data, bytes):
+            data = data.decode()
+        
+        data = data.replace('\\\\', '\\')
+        data = data.replace('\\n', '\n')
 
-    agent.workspace.write(task_id=task_id, path=file_path, data=data)
+        # add to memory
+        add_ability_memory(task_id, data, "write_file")
+
+        # convert back to bytes
+        data = str.encode(data)
+
+        agent.workspace.write(task_id=task_id, path=file_name, data=data)
     
     await agent.db.create_artifact(
         task_id=task_id,

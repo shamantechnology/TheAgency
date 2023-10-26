@@ -3,8 +3,7 @@ Memory tool for document search
 """
 # from typing import List
 
-import re
-
+# import os
 from ..forge_log import ForgeLogger
 from .registry import ability
 from forge.sdk.memory.chroma_memstore import ChromaMemStore
@@ -103,8 +102,20 @@ async def add_to_memory(
         
     elif url:
         try:
-            web_content = extract_text_from_website(url)
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36'}
 
+            req = requests.get(
+                url=url,
+                headers=headers,
+                timeout=5
+            )
+
+            html_soap = BeautifulSoup(req.text, "html.parser")
+            html_text = html_soap.get_text()
+
+            logger.info(f"Adding {url}\ncontent len {len(html_text)}")
+            
             add_website_memory(
                 task_id,
                 url,

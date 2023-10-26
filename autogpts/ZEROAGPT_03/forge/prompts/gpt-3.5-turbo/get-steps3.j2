@@ -33,9 +33,6 @@ Best Practices:
 - Ability 'read_from_memory' only should be used with one parameter.
 - Ability 'mem_qna' only should be used with two parameters and always include the query parameter.
 - Use 'read_from_memory' first to see if you can read the memory before using 'mem_qna'
-- When researching, use more than one source for the data you need to complete the task
-- When searching with 'web_search' explore the urls by adding their content to 'add_to_memory' then 'mem_qna' to ask a question about the website
-- To check if your programming code is correct, research using sources like stackoverflow.com
 
 Examples: 
 - Merge files with 'csv_merge("output.csv", "file1.csv", "file2.csv", "ID")' if both have an 'ID' column.

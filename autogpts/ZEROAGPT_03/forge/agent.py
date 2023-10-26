@@ -21,6 +21,9 @@ from forge.sdk import (
 )
 
 from forge.sdk.memory.memstore import ChromaMemStore
+from forge.sdk.memory.memstore_tools import add_chat_memory
+
+from forge.sdk.ai_planning import AIPlanning
 
 LOG = ForgeLogger(__name__)
 
@@ -293,15 +296,7 @@ class ForgeAgent(Agent):
 
         # setup call to action (cta) with task and abilities
         # use ai to plan the steps
-        if len(self.steps_completed) > 0:
-            self.ai_plan = AIPlanning(
-                task=task.input,
-                task_id=task_id,
-                abilities=self.abilities.list_abilities_for_prompt(),
-                workspace=self.workspace,
-                steps_completed=self.steps_completed
-            )
-        else:
+        if not skip_plans:
             self.ai_plan = AIPlanning(
                 task=task.input,
                 task_id=task_id,
@@ -497,12 +492,20 @@ class ForgeAgent(Agent):
             step.output = answer["thoughts"]["speak"]
             step.is_last = answer["thoughts"]["last_step"]
 
-        except json.JSONDecodeError as e:
-            # Handle JSON decoding errors
-            LOG.error(f"JSON error when decoding: {e}")
-        except Exception as e:
-            # Handle other exceptions
-            LOG.error(f"Unable to generate chat response: {e}")
+            except json.JSONDecodeError as e:
+                # Handle JSON decoding errors
+                # notice when AI does this once it starts doing it repeatingly
+                LOG.error(f"agent.py - JSON error, ignoring response: {e}")
+                LOG.error(f"🤖 {chat_response['choices'][0]['message']['content']}")
+
+                LOG.info("Clearning chat and resending instructions due to JSON error")
+                await self.clear_chat(task_id, True, True)
+            except Exception as e:
+                # Handle other exceptions
+                LOG.error(f"execute_step error: {e}")
+
+                # LOG.info("Clearning chat and resending instructions due to error")
+                # await self.clear_chat(task_id)
 
         # dump whole chat log at last step
         if step.is_last and self.chat_history:

@@ -67,13 +67,6 @@ class AIPlanning:
             }
         ]
 
-        if self.steps_completed:
-            hsteps_list = '\n'.join(self.steps_completed)
-            chat_list.append({
-                "role": "user",
-                "content": f"There was an error with the last plan. Please make a new plan. Here were the last steps attempted which will help you plan better:\n{hsteps_list}"
-            })
-
         # self.logger.info(f"🤔 AIPlanner\n")
         # for chat in chat_list:
             # self.logger.info(f"role: {chat['role']}\ncontent: {chat['content']}")
