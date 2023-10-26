@@ -104,7 +104,7 @@ class AIMemory:
                     
                     # need to add in chucking up of large docs
                     for i in range(len(memory_resp['documents'])):
-                        if len(memory_resp["documents"][i]) > 1:
+                        if len(memory_resp["documents"][i]) > 0:
                             self.relevant_docs.append(memory_resp["documents"][i][0])
 
                     if len(self.relevant_docs) == 0:

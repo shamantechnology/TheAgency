@@ -13,14 +13,10 @@ aspects of the agent such as memory, planning, and actions available.
 
 The possibilities are limited just by your imagination.
 """
-
-import openai
 import os
-import json
 
 from forge.sdk import PromptEngine
 from . import chat_completion_request
-
 
 class ProfileGenerator:
     def __init__(
@@ -70,7 +66,7 @@ class ProfileGenerator:
         chat_completion_parms = {
             "messages": chat_list,
             "model": self.model,
-            "temperature": 0.6
+            "temperature": 0.5
         }
 
         response = await chat_completion_request(

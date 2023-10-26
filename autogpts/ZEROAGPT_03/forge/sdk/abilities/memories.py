@@ -4,7 +4,6 @@ Memory tool for document search
 # from typing import List
 
 import re
-import json
 
 from ..forge_log import ForgeLogger
 from .registry import ability
@@ -106,8 +105,6 @@ async def add_to_memory(
         try:
             web_content = extract_text_from_website(url)
 
-            print(web_content)
-            
             add_website_memory(
                 task_id,
                 url,

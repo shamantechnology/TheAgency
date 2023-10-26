@@ -18,8 +18,10 @@ Constraints:
 - Only include necessary files in your task.
 - Load files into memory using 'read_from_memory.'
 - Set "ability" to "None" for a step without any ability.
+- All python code will need to be checked with research and using your LLM capabilities before using 'run_python_file'.
 
 Best Practices:
+- When researching remember that Wikipedia.com is a great source for basic information when asked to research certain topics. It is user edited so you cannot fully trust it.
 - Look for words like 'for example' for output insights. Follow the examples.
 - Load a file into memory via 'add_file_memory' before 'read_from_memory.'
 - Use 'read_from_memory' for files up to 50 characters, 'mem_qna' for larger.
@@ -32,7 +34,8 @@ Best Practices:
 - Only use one paramter for 'add_to_memory' and not more than one.
 - When researching, use more than one source for the data you need to complete the task
 - When searching with 'web_search' explore the urls by adding their content to 'add_to_memory' then 'mem_qna' to ask a question about the website
-- For searching for files locally just use path "." with ability 'list_files'
+- For searching for files locally just use the local path "./" with ability 'list_files'
+- To check if your programming code is correct, research using sources like stackoverflow.com
 
 Examples: 
 - Merge files with 'csv_merge("output.csv", "file1.csv", "file2.csv", "ID")' if both have an 'ID' column.

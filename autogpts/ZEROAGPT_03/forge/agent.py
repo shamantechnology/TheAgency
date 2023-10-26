@@ -5,8 +5,6 @@ import shutil
 import time
 from datetime import datetime
 
-from pathlib import Path
-
 from forge.sdk import (
     Agent,
     AgentDB,
@@ -181,8 +179,7 @@ class ForgeAgent(Agent):
         # get role for task
         # use AI to get the proper role experts for the task
         profile_gen = ProfileGenerator(
-            task,
-            "gpt-3.5-turbo"
+            task=task
         )
 
         # keep trying until json loads works, meaning
@@ -249,28 +246,6 @@ class ForgeAgent(Agent):
         Add the call to action and response formatting
         system and user messages
         """
-        # sys format and abilities as system way
-        # along with not using AIPlanning
-        #---------------------------------------------------
-        # # add system prompts to chat for task
-        # # set up reply json with alternative created
-        # system_prompt = self.prompt_engine.load_prompt("system-reformat")
-
-        # # add to messages
-        # # wont memory store this as static
-        # await self.add_chat(task_id, "system", system_prompt)
-
-        # # add abilities prompt
-        # abilities_prompt = self.prompt_engine.load_prompt(
-        #     "abilities-list",
-        #     **{"abilities": self.abilities.list_abilities_for_prompt()}
-        # )
-
-        # await self.add_chat(task_id, "system", abilities_prompt)
-
-        # ----------------------------------------------------
-        # AI planning and steps way
-
         task = await self.db.get_task(task_id)
 
         # add system prompts to chat for task
@@ -323,20 +298,18 @@ class ForgeAgent(Agent):
         # use ai to plan the steps
         if len(self.steps_completed) > 0:
             self.ai_plan = AIPlanning(
-                task.input,
-                task_id,
-                self.abilities.list_abilities_for_prompt(),
-                self.workspace,
-                "gpt-3.5-turbo",
-                self.steps_completed
+                task=task.input,
+                task_id=task_id,
+                abilities=self.abilities.list_abilities_for_prompt(),
+                workspace=self.workspace,
+                steps_completed=self.steps_completed
             )
         else:
             self.ai_plan = AIPlanning(
-                task.input,
-                task_id,
-                self.abilities.list_abilities_for_prompt(),
-                self.workspace,
-                "gpt-3.5-turbo"
+                task=task.input,
+                task_id=task_id,
+                abilities=self.abilities.list_abilities_for_prompt(),
+                workspace=self.workspace
             )
 
             # plan_steps = None
@@ -376,16 +349,20 @@ class ForgeAgent(Agent):
         # this is for the gpt4 api
         LOG.info(f"Total Token Amount: {self.total_token_amount}")
         if os.getenv("OPENAI_MODEL") == "gpt-4":
-            if self.total_token_amount >= 5000:
-                LOG.info("Token amount high. Waiting 1min to not hit limits")
-                time.sleep(60)
-                LOG.info("Continuing..")
-            elif self.total_token_amount >= 7000:
+            if self.total_token_amount >= 8192:
                 LOG.info("Token limit of 8192 being reached. Resetting chat")
                 await self.clear_chat(task_id)
+            elif self.total_token_amount >= 5000:
+                LOG.info("Token amount high. Waiting 10secs to not hit limits")
+                time.sleep(10)
+                LOG.info("Continuing...")
         elif os.getenv("OPENAI_MODEL") == "gpt-3.5-turbo":
-            if self.total_token_amount >= 4097:
-                LOG.info("Token limit of 4097 being reached. Resetting chat")
+            if self.total_token_amount >= 4096:
+                LOG.info("Token limit of 4096 being reached. Resetting chat")
+                await self.clear_chat(task_id)
+        elif os.getenv("OPENAI_MODEL") == "gpt-3.5-turbo-16k":
+            if self.total_token_amount >= 16384:
+                LOG.info("Token limit of 16384 being reached. Resetting chat")
                 await self.clear_chat(task_id)
 
 
@@ -556,7 +533,6 @@ class ForgeAgent(Agent):
                                 content=f"[{timestamp}] You didn't state a correct ability. You must use a real ability but if not using any set ability to None or a blank string."
                             ) 
                     
-
             except json.JSONDecodeError as e:
                 # Handle JSON decoding errors
                 # notice when AI does this once it starts doing it repeatingly
@@ -568,9 +544,6 @@ class ForgeAgent(Agent):
             except Exception as e:
                 # Handle other exceptions
                 LOG.error(f"execute_step error: {e}")
-
-                # LOG.info("Clearning chat and resending instructions due to error")
-                # await self.clear_chat(task_id)
 
         # dump whole chat log at last step
         if step.is_last and self.chat_history:

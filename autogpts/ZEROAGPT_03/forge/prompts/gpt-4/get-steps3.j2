@@ -12,6 +12,7 @@ Constraints:
 - Assume local files share the source code folder.
 - Utilize discovered resources effectively.
 - Store websites by url with the 'add_to_memory' ability and then ask questions about the site with the 'mem_qna' ability
+- All python code will need to be checked with research and using your LLM capabilities before using 'run_python_file'.
 
 Best Practices:
 - Do not create plans around assumptions. Do not assume you will be working with a certain file or other data and make sure to check. Multiple steps to cover different scenario can help.
@@ -34,7 +35,7 @@ Best Practices:
 - Use 'read_from_memory' first to see if you can read the memory before using 'mem_qna'
 - When researching, use more than one source for the data you need to complete the task
 - When searching with 'web_search' explore the urls by adding their content to 'add_to_memory' then 'mem_qna' to ask a question about the website
-
+- To check if your programming code is correct, research using sources like stackoverflow.com
 
 Examples: 
 - Merge files with 'csv_merge("output.csv", "file1.csv", "file2.csv", "ID")' if both have an 'ID' column.
