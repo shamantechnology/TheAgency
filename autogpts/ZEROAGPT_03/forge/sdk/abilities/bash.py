@@ -56,5 +56,10 @@ async def run_bash_command(agent, task_id: str, command: str) -> str:
         logger.error(f"JSON dumps failed in run_bash_command: {err}")
         raise err
 
-    add_ability_memory(task_id, return_json, "run_bash_command")
+    add_ability_memory(
+        task_id,
+        return_json,
+        "run_bash_command",
+        agent.memstore
+    )
     return return_json

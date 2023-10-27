@@ -5,8 +5,6 @@ import shutil
 import time
 from datetime import datetime
 
-from pathlib import Path
-
 from forge.sdk import (
     Agent,
     AgentDB,
@@ -22,8 +20,8 @@ from forge.sdk import (
     num_tokens_from_messages
 )
 
-from forge.sdk.memory.memstore import ChromaMemStore
-from forge.sdk.memory.memstore_tools import add_chat_memory
+from forge.sdk.memory.chroma_memstore import ChromaMemStore
+from forge.sdk.memory.weaviate_memstore import WeaviateMemstore
 
 from forge.sdk.ai_planning import AIPlanning
 
@@ -36,6 +34,9 @@ class ForgeAgent(Agent):
         
         # initialize chat history
         self.chat_history = []
+
+        # steps completed histroy
+        self.steps_completed = []
 
         # expert profile
         self.expert_profile = None
@@ -56,6 +57,13 @@ class ForgeAgent(Agent):
 
         # track amount of tokens to add a wait
         self.total_token_amount = 0
+
+        # track amount it repeats
+        self.repeating = 0
+
+        # memstore
+        self.memstore_db = os.getenv("VECTOR_DB")
+        self.memstore = None
     
     def copy_to_temp(self, task_id: str) -> None:
         """
@@ -90,7 +98,7 @@ class ForgeAgent(Agent):
             except Exception as e:
                 LOG.error('Failed to delete %s. Reason: %s' % (file_path, e))
     
-    async def clear_chat(self, task_id: str, clear_plans: bool = False, fresh: bool = False) -> None:
+    async def clear_chat(self, task_id: str, fresh: bool = False) -> None:
         """
         Clear chat and remake with instruction messages
         """
@@ -102,13 +110,11 @@ class ForgeAgent(Agent):
         # clear chat and rebuild
         self.chat_history = []
         self.instruction_msgs = []
+        self.steps_completed = []
 
-        if self.plan_steps and not clear_plans:
-            await self.set_instruction_messages(task_id, skip_plans=True)
-        else:
-            await self.set_instruction_messages(task_id)
+        await self.set_instruction_messages(task_id)
 
-        if fresh:
+        if not fresh:
             # get last assistant thoughts
             last_thoughts = ""
             last_ability = ""
@@ -150,12 +156,17 @@ class ForgeAgent(Agent):
         
         # initalize memstore for task
         try:
-            # initialize memstore
-            cwd = self.workspace.get_cwd_path(task.task_id)
-            chroma_dir = f"{cwd}/chromadb"
-            os.makedirs(chroma_dir)
-            ChromaMemStore(chroma_dir+"/")
-            LOG.info(f"🧠 Created memorystore @ {os.getenv('AGENT_WORKSPACE')}/{task.task_id}/chroma")
+            if self.memstore_db == "chroma":
+                # initialize chroma memstore
+                cwd = self.workspace.get_cwd_path(task.task_id)
+                chroma_dir = f"{cwd}/chromadb"
+                os.makedirs(chroma_dir)
+                self.memstore = ChromaMemStore(chroma_dir+"/")
+                LOG.info(f"🧠 Created Chroma memorystore @ {os.getenv('AGENT_WORKSPACE')}/{task.task_id}/chroma")
+            elif self.memstore_db == "weaviate":
+                # initialize weaviate
+                LOG.info("🧠 Initializing Weaviate")
+                self.memstore = WeaviateMemstore(use_embedded=True)
         except Exception as err:
             LOG.error(f"memstore creation failed: {err}")
 
@@ -168,8 +179,7 @@ class ForgeAgent(Agent):
         # get role for task
         # use AI to get the proper role experts for the task
         profile_gen = ProfileGenerator(
-            task,
-            "gpt-3.5-turbo"
+            task=task
         )
 
         # keep trying until json loads works, meaning
@@ -216,45 +226,26 @@ class ForgeAgent(Agent):
             if chat_struct not in self.chat_history:
                 self.chat_history.append(chat_struct)
             else:
-                # clear chat, resend instructions, dont include past messages
-                LOG.info("Stuck in a repeat loop. Waiting 30s then clearing and resetting chat")
-                time.sleep(30)
-                await self.clear_chat(task_id, True, True)
+                # clear after three times
+                if self.repeating == 3:
+                    # clear chat, resend instructions, dont include past messages
+                    LOG.info("Stuck in a repeat loop. Waiting 30s then clearing and resetting chat")
+                    self.repeating = 0
+                    await self.clear_chat(task_id, True)
+                else:
+                    self.repeating += 1
 
         except KeyError:
             self.chat_history = [chat_struct]
 
     async def set_instruction_messages(
         self,
-        task_id: str,
-        skip_plans: bool = False
+        task_id: str
     ) -> None:
         """
         Add the call to action and response formatting
         system and user messages
         """
-        # sys format and abilities as system way
-        # along with not using AIPlanning
-        #---------------------------------------------------
-        # # add system prompts to chat for task
-        # # set up reply json with alternative created
-        # system_prompt = self.prompt_engine.load_prompt("system-reformat")
-
-        # # add to messages
-        # # wont memory store this as static
-        # await self.add_chat(task_id, "system", system_prompt)
-
-        # # add abilities prompt
-        # abilities_prompt = self.prompt_engine.load_prompt(
-        #     "abilities-list",
-        #     **{"abilities": self.abilities.list_abilities_for_prompt()}
-        # )
-
-        # await self.add_chat(task_id, "system", abilities_prompt)
-
-        # ----------------------------------------------------
-        # AI planning and steps way
-
         task = await self.db.get_task(task_id)
 
         # add system prompts to chat for task
@@ -305,13 +296,20 @@ class ForgeAgent(Agent):
 
         # setup call to action (cta) with task and abilities
         # use ai to plan the steps
-        if not skip_plans:
+        if len(self.steps_completed) > 0:
             self.ai_plan = AIPlanning(
-                task.input,
-                task_id,
-                self.abilities.list_abilities_for_prompt(),
-                self.workspace,
-                "gpt-3.5-turbo"
+                task=task.input,
+                task_id=task_id,
+                abilities=self.abilities.list_abilities_for_prompt(),
+                workspace=self.workspace,
+                steps_completed=self.steps_completed
+            )
+        else:
+            self.ai_plan = AIPlanning(
+                task=task.input,
+                task_id=task_id,
+                abilities=self.abilities.list_abilities_for_prompt(),
+                workspace=self.workspace
             )
 
             # plan_steps = None
@@ -351,16 +349,20 @@ class ForgeAgent(Agent):
         # this is for the gpt4 api
         LOG.info(f"Total Token Amount: {self.total_token_amount}")
         if os.getenv("OPENAI_MODEL") == "gpt-4":
-            if self.total_token_amount >= 5000:
-                LOG.info("Token amount high. Waiting 1min to not hit limits")
-                time.sleep(60)
-                LOG.info("Continuing..")
-            elif self.total_token_amount >= 7000:
+            if self.total_token_amount >= 8192:
                 LOG.info("Token limit of 8192 being reached. Resetting chat")
                 await self.clear_chat(task_id)
+            elif self.total_token_amount >= 5000:
+                LOG.info("Token amount high. Waiting 10secs to not hit limits")
+                time.sleep(10)
+                LOG.info("Continuing...")
         elif os.getenv("OPENAI_MODEL") == "gpt-3.5-turbo":
-            if self.total_token_amount >= 4097:
-                LOG.info("Token limit of 4097 being reached. Resetting chat")
+            if self.total_token_amount >= 4096:
+                LOG.info("Token limit of 4096 being reached. Resetting chat")
+                await self.clear_chat(task_id)
+        elif os.getenv("OPENAI_MODEL") == "gpt-3.5-turbo-16k":
+            if self.total_token_amount >= 16384:
+                LOG.info("Token limit of 16384 being reached. Resetting chat")
                 await self.clear_chat(task_id)
 
 
@@ -438,10 +440,16 @@ class ForgeAgent(Agent):
                         step.output = answer["thoughts"]["speak"]
                     else:
                         step.output = "Nothing to say..."
+
+                    # get the step completed
+                    if "step completed" in answer["thoughts"]:
+                        step_completed = answer["thoughts"]["step completed"]
+                        if step_completed != "None" and step_completed != None:
+                            self.steps_completed.append(answer["thoughts"]["step completed"])
+                        
+                        LOG.info(f"Steps completed: {self.steps_completed}")
                         
                     LOG.info(f"🤖 {step.output}")
-                        
-                    LOG.info(f"⏳ step status {step.status} is_last? {step.is_last}")
 
                     if "ability" in answer:
 
@@ -525,7 +533,6 @@ class ForgeAgent(Agent):
                                 content=f"[{timestamp}] You didn't state a correct ability. You must use a real ability but if not using any set ability to None or a blank string."
                             ) 
                     
-
             except json.JSONDecodeError as e:
                 # Handle JSON decoding errors
                 # notice when AI does this once it starts doing it repeatingly
@@ -533,13 +540,10 @@ class ForgeAgent(Agent):
                 LOG.error(f"🤖 {chat_response['choices'][0]['message']['content']}")
 
                 LOG.info("Clearning chat and resending instructions due to JSON error")
-                await self.clear_chat(task_id, True, True)
+                await self.clear_chat(task_id, True)
             except Exception as e:
                 # Handle other exceptions
                 LOG.error(f"execute_step error: {e}")
-
-                # LOG.info("Clearning chat and resending instructions due to error")
-                # await self.clear_chat(task_id)
 
         # dump whole chat log at last step
         if step.is_last and self.chat_history:

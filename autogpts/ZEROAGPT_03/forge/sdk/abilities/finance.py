@@ -34,17 +34,21 @@ async def get_ticker_info(
 ) -> str:
     # get ticker then financial information as dict
     # dict has structure where timestamp are keys
-    stock_info = {}
-
     try:
         stock = yf.Ticker(ticker_symbol)
-        stock_info = stock.get_info()
+        stock_info = json.dumps(stock.get_info())
+
+        add_ability_memory(
+            task_id,
+            stock_info,
+            "get_financials_year",
+            agent.memstore
+        )
     except Exception as err:
         logger.error(f"get_ticker_info failed: {err}")
         raise err
 
-    json_info = json.dumps(stock_info)
-    return json_info
+    return stock_info
 
 @ability(
     name="get_ticker_financials_year",
@@ -89,7 +93,8 @@ async def get_financials_year(
                 add_ability_memory(
                     task_id,
                     str(financial_data),
-                    "get_financials_year"
+                    "get_financials_year",
+                    agent.memstore
                 )
     except Exception as err:
         logger.error(f"get_financials_year failed: {err}")

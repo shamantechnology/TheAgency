@@ -52,5 +52,10 @@ async def math_run_expression(agent, task_id: str, math_expression: str) -> str:
         logger.error(f"JSON dumps failed: {err}")
         raise err
     
-    add_ability_memory(task_id, return_json, "run_python_file")
+    add_ability_memory(
+        task_id,
+        return_json,
+        "run_python_file",
+        agent.memstore
+    )
     return return_json
