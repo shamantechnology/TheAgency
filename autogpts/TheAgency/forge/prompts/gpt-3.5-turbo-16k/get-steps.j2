@@ -1,0 +1,42 @@
+Generate a series of steps to accomplish the following task in a short and concise manner. To ensure the successful execution, please adhere to the following Constraints and Best Practices.
+
+Task:
+'{{ task }}'
+
+Constraints:
+- Always conclude each sequence of steps with the "Finish" ability as the final step, providing a clear reason for marking the task as finished.
+- Avoid using abilities as arguments for other abilities; maintain a modular and logical structure.
+- Utilize only the abilities listed in the provided "Task Abilities" list in any way to complete the task.
+- Use the internet as needed. For example, if there is not file about company information locally, use the 'google_search' ability to find the information. 
+- Be careful on the internet, not everything is to be trusted
+- Prioritize local data sources over online sources to minimize external dependencies and potential data access issues.
+- When handling multiple files (e.g., .csv, .txt), some steps may require combining multiple files for a comprehensive solution.
+- Limit "CSV"-related abilities to CSV files. If the task involves writing to a text file and no mention of CSV or tabulated data is provided, do not use CSV-related abilities.
+- Unless you find a CSV file in 'list_files', do not use the CSV functions
+- Investigate the necessity of each file and include only essential files in your task to avoid unnecessary data processing.
+- Maintain precision in your data, avoiding approximations, filler text, or placeholder text in your results.
+- Before marking the task as "finished," ensure that it is actually complete by thoroughly analyzing any necessary data or requirements to fulfill the objective.
+- Assume that local files are located in the same folder as the source code to streamline file access and minimize path-related issues.
+- Adhere to the provided notation for values or text in the task instructions to maintain consistency and accuracy.
+- Efficiently use discovered files to complete each step, optimizing the use of available resources.
+- Before using the "run_python_file" ability, ensure that the relevant file exists or create it if needed, to prevent errors or missing data.
+Best Practices:
+- Look for words like 'for example' or 'for instance' in a task description to gain a better understanding of the output the task requires. Sometimes specific formats of numbers or text are needed for task completion. Follow the examples provided.
+- When generating a list of files, primarily focus on listing files at "." or "./" unless specified otherwise in the task instructions.
+- Always load a file into memory using 'add_file_memory' before calling 'read_file_from_memory' to ensure efficient data handling.
+- Use the filenames specified in the task, if provided, to maintain consistency and accuracy in data processing.
+- Employ 'read_file_from_memory' to read files up to 50 characters. Greater than 50 characters, use 'mem_qna' ability.
+- If your confidence level is low at any point, reconsider your next steps to enhance task performance.
+- Maintain coherent and logical steps toward task completion, avoiding unnecessary repetition.
+- Always read files with 'read_file_from_memory' to extract and utilize the required information.
+- Utilize the 'list_files' ability to identify data files relevant to the task.
+- If you encounter an error, reevaluate and refine your steps, adding or removing actions as needed to prevent errors before proceeding.
+- Remember that there is no dedicated analysis ability; you are responsible for data analysis using your inherent capabilities as an LLM. Rely on your strengths and avoid over-reliance on specific abilities.
+- If a file is not found when using 'read_file_from_memory,' add the file with 'add_file_memory' and then read it again to ensure data accessibility.
+- If the required column in a CSV is absent, create the column with 'csv_add_column_data,' starting at the 0th row, to maintain data structure.
+- Before adding columns to a CSV, read the CSV first and analyze its structure and data before populating it with values using 'csv_add_column_data.'
+- To categorize a CSV, examine each row in a column with 'csv_get_column_value,' analyze the data, and add the categorization to the appropriate column and row with 'csv_add_column_data.'
+- Before using 'csv_merge,' employ 'csv_get_columns' on both files to identify the common column. Only use 'csv_merge' with two different files or more for accurate data integration.
+- Abilities starting with 'csv' are exclusively for CSV files; refrain from using them for other data types.
+- When searching for usernames online, be aware that some usernames start with '@' to link or reference a user account, e.g., '@test' for a Twitter or X username named 'test.'
+- Double-check the spelling and case of a username by verifying its source. If discrepancies are found, search with the source website for accuracy and consistency. For example, if a Facebook username found online is 'testxyz,' but on Facebook, it's 'TestXyZ,' search with the source website to ensure accurate results and matching formatting.
