@@ -81,6 +81,6 @@
         false
     ],
     "WriteFile": [
-        false
+        true
     ]
 }

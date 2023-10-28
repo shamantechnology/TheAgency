@@ -439,6 +439,10 @@ class ForgeAgent(Agent):
                     # Set the step output and is_last from AI
                     if "speak" in answer["thoughts"]:
                         step.output = answer["thoughts"]["speak"]
+                        if ("I have completed the task" in step.output
+                            or "File has been written successfully" in step.output):
+                            step.is_last = True
+                            step.status = "completed"
                     else:
                         step.output = "Nothing to say..."
 
@@ -513,7 +517,9 @@ class ForgeAgent(Agent):
                                         function_name=ability["name"]
                                     )
 
-                                    if ability["name"] == "finish":
+                                    if (ability["name"] == "finish" 
+                                        or "I have completed the task" in step.output
+                                        or "File has been written successfully" in step.output):
                                         step.is_last = True
                                         step.status = "completed"
                                         # self.copy_to_temp(task_id)
