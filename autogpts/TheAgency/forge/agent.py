@@ -395,7 +395,7 @@ class ForgeAgent(Agent):
             chat_completion_parms = {
                 "messages": self.chat_history,
                 "model": os.getenv("OPENAI_MODEL"),
-                "temperature": 0.5 if os.getenv("OPENAI_MODEL") == "gpt-4" else 0.7
+                "temperature": 0
             }
 
             chat_response = await chat_completion_request(
