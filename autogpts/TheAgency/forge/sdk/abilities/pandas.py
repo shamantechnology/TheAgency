@@ -26,7 +26,7 @@ def csv_check(agent, task_id: str, file_name: str) -> bool:
     Check if file is a CSV
     """
     gcwd = agent.workspace.get_cwd_path(task_id)
-    csv_fileh = open(f"{gcwd}/{file_name}", 'rb')
+    csv_fileh = open(f"{gcwd}/{file_name}", "r")
     try:
         csv.Sniffer().sniff(csv_fileh.read(1024))
         csv_fileh.seek(0)
