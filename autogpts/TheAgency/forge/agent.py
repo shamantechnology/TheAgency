@@ -170,8 +170,9 @@ class ForgeAgent(Agent):
         except Exception as err:
             LOG.error(f"memstore creation failed: {err}")
 
-        # clear chat and ability history
+        # clear chat and steps completed
         self.chat_history = []
+        self.steps_completed = []
 
         # clear temp folder
         self.clear_temp()
@@ -378,7 +379,7 @@ class ForgeAgent(Agent):
             is_last=False
         )
 
-        step.status = "running"
+        step.status = "created"
 
         self.task_steps_amount += 1
         LOG.info(f"Step {self.task_steps_amount}")
@@ -394,7 +395,7 @@ class ForgeAgent(Agent):
             chat_completion_parms = {
                 "messages": self.chat_history,
                 "model": os.getenv("OPENAI_MODEL"),
-                "temperature": 0.5
+                "temperature": 0.5 if os.getenv("OPENAI_MODEL") == "gpt-4" else 0.7
             }
 
             chat_response = await chat_completion_request(
@@ -512,10 +513,9 @@ class ForgeAgent(Agent):
                                         function_name=ability["name"]
                                     )
 
-                                    step.status = "completed"
-
                                     if ability["name"] == "finish":
                                         step.is_last = True
+                                        step.status = "completed"
                                         self.copy_to_temp(task_id)
                             else:
                                 LOG.info("No ability name found")

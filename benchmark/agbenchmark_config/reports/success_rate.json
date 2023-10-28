@@ -1,4 +1,13 @@
 {
+    "AnswerQuestionCombineCsv": [
+        false
+    ],
+    "AnswerQuestionCsv": [
+        false
+    ],
+    "AnswerQuestionSmallCsv": [
+        false
+    ],
     "BasicRetrieval": [
         false
     ],
@@ -9,6 +18,9 @@
         false
     ],
     "FileOrganizer": [
+        false
+    ],
+    "LabelCsv": [
         false
     ],
     "LabelData": [
@@ -54,6 +66,9 @@
         false
     ],
     "SynthesizeInfo": [
+        false
+    ],
+    "TestGetInformation": [
         false
     ],
     "ThreeSum": [
