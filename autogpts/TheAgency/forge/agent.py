@@ -175,7 +175,7 @@ class ForgeAgent(Agent):
         self.steps_completed = []
 
         # clear temp folder
-        self.clear_temp()
+        # self.clear_temp()
         
         # get role for task
         # use AI to get the proper role experts for the task
@@ -516,7 +516,7 @@ class ForgeAgent(Agent):
                                     if ability["name"] == "finish":
                                         step.is_last = True
                                         step.status = "completed"
-                                        self.copy_to_temp(task_id)
+                                        # self.copy_to_temp(task_id)
                             else:
                                 LOG.info("No ability name found")
                                 await self.add_chat(
