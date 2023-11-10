@@ -161,11 +161,63 @@ def create_thread() -> dict:
 
     return empty_thread
 
-def user_msg(
+def add_thread_message(
     role: str,
     content: str,
-    thread_id: str,
-    assistant_id: str) -> bool:
+    thread_id: str):
     """
-    Adds a user message to the thread with assistant
+    Adds a message to a thread
     """
+    try:
+        client = openai.OpenAI()
+        client.beta.threads.messages.create(
+            thread_id,
+            role=role,
+            content=content
+        )
+    except Exception as err:
+        LOG.error(f"Creating message in thread {thread_id} failed: {err}")
+        raise
+
+def list_message(thread_id: str) -> dict:
+    """
+    Get a list of messages in a thread
+    """
+    try:
+        client = openai.OpenAI()
+        thread_messages = client.beta.threads.messages.list(thread_id)
+    except Exception as err:
+        LOG.error(f"Error getting list of messages from thread_id {thread_id}: {err}")
+        raise
+
+    return thread_messages
+
+def run_assistant(thread_id: str, assistant_id: str) -> dict:
+    """
+    Send thread to assistant to run
+    Returns ID of run
+    """
+    try:
+        client = openai.OpenAI()
+        run = client.beta.threads.runs.create(
+            thread_id=thread_id,
+            assistant_id=assistant_id
+        )
+    except Exception as err:
+        LOG.error(f"Running assistant {assistant_id} failed with thread_id {thread_id}: {err} ")
+        raise
+    
+    return run
+
+def check_assistant_run(run_id: str, thread_id: str) -> str:
+    try:
+        client = openai.OpenAI()
+        run = client.beta.threads.runs.retrieve(
+            thread_id=thread_id,
+            run_id=run_id
+        )
+    except Exception as err:
+        LOG.error(f"Checking run {run_id} failed with thread_id {thread_id}: {err}")
+        raise
+
+    return run["status"]
