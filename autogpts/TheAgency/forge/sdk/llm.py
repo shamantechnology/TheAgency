@@ -124,3 +124,48 @@ def num_tokens_from_messages(messages, model="gpt-3.5-turbo-0613"):
     except Exception as err:
         LOG.error(f"token calc for\n{messages}\nfailed: {err}")
         raise err
+
+
+#####################
+# OpenAI assistant #
+####################
+
+def get_assistant() -> dict:
+    """
+    Returns the assistant specified
+    Return dict with assistant information
+    """
+    assistant_name = os.getenv("OPENAI_ASSISTANT")
+
+    try:
+        client = openai.OpenAI()
+        assistant = client.beta.assistants.retrieve(assistant_name)
+    except Exception as err:
+        LOG.error(f"Getting assistant {assistant_name} failed: {err}")
+        raise
+
+    return assistant
+
+
+def create_thread() -> dict:
+    """
+    Creates an empty thread for messages with assistant
+    Returns dict with thread information
+    """
+    try:
+        client = openai.OpenAI()
+        empty_thread = client.beta.threads.create()
+    except Exception as err:
+        LOG.error(f"Creating new thread failed: {err}")
+        raise
+
+    return empty_thread
+
+def user_msg(
+    role: str,
+    content: str,
+    thread_id: str,
+    assistant_id: str) -> bool:
+    """
+    Adds a user message to the thread with assistant
+    """
